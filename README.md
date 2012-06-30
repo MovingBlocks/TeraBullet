@@ -20,6 +20,6 @@ TeraBullet is licened under the [zlib license](http://www.opensource.org/license
 Credits
 =======
 
-BulletPhysics team - Bullet
-Martin Dvorak - JBullet port
-Steven Brooker (Immortius) - Voxel world extensions
+*  BulletPhysics team - Bullet
+*  Martin Dvorak - JBullet port
+*  Steven Brooker (Immortius) - Voxel world extensions
