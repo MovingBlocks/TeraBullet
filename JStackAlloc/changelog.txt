@@ -1,0 +1,16 @@
+Release 20080716:
+- Fixed wrong generation of "get" method in stack when in single thread mode
+- Added isolated mode and documented InstrumentationTask
+
+Release 20080703:
+- Fixed generation of stack class on first intrumentation run
+- Added support for storing value objects in static fields instead of stack
+
+Release 20080623:
+- Removed obsolete code and fixed closing of files
+- Added single thread mode
+- Removed copyOut method
+- Disabled stack allocation in suspendable methods when using Matthias Mann's Continuations library
+
+Release 20080621:
+- Initial release
