@@ -21,7 +21,6 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
-
 package com.bulletphysics.collision.dispatch;
 
 import com.bulletphysics.collision.broadphase.BroadphaseNativeType;
@@ -32,6 +31,7 @@ import com.bulletphysics.collision.narrowphase.PersistentManifold;
 import com.bulletphysics.collision.shapes.BoxShape;
 import com.bulletphysics.collision.shapes.CollisionShape;
 import com.bulletphysics.collision.shapes.voxel.VoxelWorldShape;
+import com.bulletphysics.linearmath.IntUtil;
 import com.bulletphysics.linearmath.Transform;
 import com.bulletphysics.util.ObjectArrayList;
 import com.bulletphysics.util.ObjectPool;
@@ -48,15 +48,11 @@ public class VoxelWorldCollisionAlgorithm extends CollisionAlgorithm {
 
     private Map<Tuple3i, CollisionAlgorithm> collisionAlgMap = new HashMap<Tuple3i, CollisionAlgorithm>();
     private boolean isSwapped;
-    // TODO: Temporary, blocks should store their shape(s)
-    private BoxShape defaultBox;
 
     public void init(CollisionAlgorithmConstructionInfo ci, CollisionObject body0, CollisionObject body1, boolean isSwapped) {
         super.init(ci);
 
         this.isSwapped = isSwapped;
-
-        defaultBox = new BoxShape(new Vector3f(0.5f, 0.5f, 0.5f));
     }
 
     @Override
@@ -85,8 +81,8 @@ public class VoxelWorldCollisionAlgorithm extends CollisionAlgorithm {
         Vector3f otherObjPos = new Vector3f();
         otherObjMatrix.get(otherObjPos);
 
-        Tuple3i regionMin = new Point3i(floorToInt(aabbMin.x + 0.5f), floorToInt(aabbMin.y + 0.5f), floorToInt(aabbMin.z + 0.5f));
-        Tuple3i regionMax = new Point3i(floorToInt(aabbMax.x + 0.5f), floorToInt(aabbMax.y + 0.5f), floorToInt(aabbMax.z + 0.5f));
+        Tuple3i regionMin = new Point3i(IntUtil.floorToInt(aabbMin.x + 0.5f), IntUtil.floorToInt(aabbMin.y + 0.5f), IntUtil.floorToInt(aabbMin.z + 0.5f));
+        Tuple3i regionMax = new Point3i(IntUtil.floorToInt(aabbMax.x + 0.5f), IntUtil.floorToInt(aabbMax.y + 0.5f), IntUtil.floorToInt(aabbMax.z + 0.5f));
 
         Transform orgTrans = Stack.alloc(Transform.class);
         colObj.getWorldTransform(orgTrans);
@@ -201,11 +197,6 @@ public class VoxelWorldCollisionAlgorithm extends CollisionAlgorithm {
         for (CollisionAlgorithm alg : collisionAlgMap.values()) {
             alg.getAllContactManifolds(manifoldArray);
         }
-    }
-
-    private static int floorToInt(float val) {
-        int i = (int) val;
-        return (val < 0 && val != i) ? i - 1 : i;
     }
 
     ////////////////////////////////////////////////////////////////////////////

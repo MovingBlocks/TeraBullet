@@ -135,6 +135,10 @@ public abstract class CollisionShape {
 		return getShapeType().isCompound();
 	}
 
+    public boolean isVoxelWorld() {
+        return getShapeType().isVoxelWorld();
+    }
+
 	///isInfinite is used to catch simulation error (aabb check)
 	public boolean isInfinite() {
 		return getShapeType().isInfinite();
