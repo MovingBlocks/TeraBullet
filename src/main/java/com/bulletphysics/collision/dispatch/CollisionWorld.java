@@ -29,6 +29,7 @@ import com.bulletphysics.collision.broadphase.*;
 import com.bulletphysics.collision.narrowphase.*;
 import com.bulletphysics.collision.narrowphase.ConvexCast.CastResult;
 import com.bulletphysics.collision.shapes.*;
+import com.bulletphysics.collision.shapes.voxel.VoxelInfo;
 import com.bulletphysics.collision.shapes.voxel.VoxelPhysicsWorld;
 import com.bulletphysics.collision.shapes.voxel.VoxelWorldShape;
 import com.bulletphysics.linearmath.*;
@@ -378,8 +379,8 @@ public class CollisionWorld {
 
             for (; number > 0; --number)
             {
-                CollisionShape childShape = world.getCollisionShapeAt(currentVoxX, currentVoxY, currentVoxZ);
-                if (childShape != null) {
+                VoxelInfo childInfo = world.getCollisionShapeAt(currentVoxX, currentVoxY, currentVoxZ);
+                if (childInfo.isColliding()) {
                     Vector3f pos = Stack.alloc(Vector3f.class);
                     pos.set(currentVoxX, currentVoxY, currentVoxZ);
                     Matrix4f transformMat = Stack.alloc(Matrix4f.class);
@@ -388,11 +389,11 @@ public class CollisionWorld {
                     childTransform.set(transformMat);
                     // replace collision shape so that callback can determine the triangle
                     CollisionShape saveCollisionShape = collisionObject.getCollisionShape();
-                    collisionObject.internalSetTemporaryCollisionShape(childShape);
-                    collisionObject.setUserPointer(new Point3i(currentVoxX, currentVoxY, currentVoxZ));
+                    collisionObject.internalSetTemporaryCollisionShape(childInfo.getCollisionShape());
+                    collisionObject.setUserPointer(childInfo.getUserData());
                     rayTestSingle(rayFromTrans, rayToTrans,
                             collisionObject,
-                            childShape,
+                            childInfo.getCollisionShape(),
                             childTransform,
                             resultCallback);
                     // restore
@@ -587,8 +588,8 @@ public class CollisionWorld {
         for (int x = min.x; x <= max.x; ++x) {
             for (int y = min.y; y <= max.y; ++y) {
                 for (int z = min.z; z <= max.z; ++z) {
-                    CollisionShape childShape = worldShape.getWorld().getCollisionShapeAt(x, y, z);
-                    if (childShape == null) {
+                    VoxelInfo childInfo = worldShape.getWorld().getCollisionShapeAt(x, y, z);
+                    if (!childInfo.isBlocking()) {
                         continue;
                     }
                     Vector3f pos = Stack.alloc(Vector3f.class);
@@ -596,10 +597,11 @@ public class CollisionWorld {
                     Transform childTrans = new Transform(new Matrix4f(IDENTITY_MAT3F, pos, 1.0f));
                     // replace collision shape so that callback can determine the triangle
                     CollisionShape saveCollisionShape = collisionObject.getCollisionShape();
-                    collisionObject.internalSetTemporaryCollisionShape(childShape);
+                    collisionObject.internalSetTemporaryCollisionShape(childInfo.getCollisionShape());
+                    collisionObject.setUserPointer(childInfo.getUserData());
                     objectQuerySingle(castShape, convexFromTrans, convexToTrans,
                             collisionObject,
-                            childShape,
+                            childInfo.getCollisionShape(),
                             childTrans,
                             resultCallback, allowedPenetration);
                     // restore

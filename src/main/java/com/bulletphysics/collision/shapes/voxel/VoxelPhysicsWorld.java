@@ -38,5 +38,5 @@ public interface VoxelPhysicsWorld {
      * @param z
      * @return The collision shape in this area, or null if there is no collision.
      */
-    CollisionShape getCollisionShapeAt(int x, int y, int z);
+    VoxelInfo getCollisionShapeAt(int x, int y, int z);
 }

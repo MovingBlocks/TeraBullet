@@ -30,6 +30,7 @@ import com.bulletphysics.collision.broadphase.DispatcherInfo;
 import com.bulletphysics.collision.narrowphase.PersistentManifold;
 import com.bulletphysics.collision.shapes.BoxShape;
 import com.bulletphysics.collision.shapes.CollisionShape;
+import com.bulletphysics.collision.shapes.voxel.VoxelInfo;
 import com.bulletphysics.collision.shapes.voxel.VoxelWorldShape;
 import com.bulletphysics.linearmath.IntUtil;
 import com.bulletphysics.linearmath.Transform;
@@ -96,10 +97,10 @@ public class VoxelWorldCollisionAlgorithm extends CollisionAlgorithm {
         for (int x = regionMin.x; x <= regionMax.x; ++x) {
             for (int y = regionMin.y; y <= regionMax.y; ++y) {
                 for (int z = regionMin.z; z <= regionMax.z; ++z) {
-                    CollisionShape childShape = worldShape.getWorld().getCollisionShapeAt(x, y, z);
-                    Tuple3i blockPos = new Point3i(x, y, z);
-                    if (childShape != null) {
-                        colObj.internalSetTemporaryCollisionShape(childShape);
+                    VoxelInfo childInfo = worldShape.getWorld().getCollisionShapeAt(x, y, z);
+                    Point3i blockPos = new Point3i(x, y, z);
+                    if (childInfo.isBlocking()) {
+                        colObj.internalSetTemporaryCollisionShape(childInfo.getCollisionShape());
 
                         CollisionAlgorithm alg = collisionAlgMap.get(blockPos);
                         if (alg == null) {
