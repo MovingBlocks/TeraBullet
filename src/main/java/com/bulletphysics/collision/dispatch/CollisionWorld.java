@@ -29,6 +29,7 @@ import com.bulletphysics.collision.broadphase.*;
 import com.bulletphysics.collision.narrowphase.*;
 import com.bulletphysics.collision.narrowphase.ConvexCast.CastResult;
 import com.bulletphysics.collision.shapes.*;
+import com.bulletphysics.collision.shapes.voxel.VoxelPhysicsWorld;
 import com.bulletphysics.collision.shapes.voxel.VoxelWorldShape;
 import com.bulletphysics.linearmath.*;
 import com.bulletphysics.util.ObjectArrayList;
@@ -42,6 +43,11 @@ import javax.vecmath.*;
  * @author jezek2
  */
 public class CollisionWorld {
+
+    private static final Matrix3f IDENTITY_MAT3F = new Matrix3f();
+    static {
+        IDENTITY_MAT3F.setIdentity();
+    }
 
     //protected final BulletStack stack = BulletStack.get();
 
@@ -321,6 +327,101 @@ public class CollisionWorld {
             }
         } else if (collisionShape.isVoxelWorld()) {
 
+            VoxelWorldShape voxelShape = (VoxelWorldShape)collisionShape;
+            VoxelPhysicsWorld world = voxelShape.getWorld();
+
+            int currentVoxX = IntUtil.floorToInt(rayFromTrans.origin.x + 0.5f);
+            int currentVoxY = IntUtil.floorToInt(rayFromTrans.origin.y + 0.5f);
+            int currentVoxZ = IntUtil.floorToInt(rayFromTrans.origin.z + 0.5f);
+            float dx = Math.abs(rayToTrans.origin.x - rayFromTrans.origin.x);
+            float dy = Math.abs(rayToTrans.origin.y - rayFromTrans.origin.y);
+            float dz = Math.abs(rayToTrans.origin.z - rayFromTrans.origin.z);
+            float invDx = 1.0f / dx;
+            float invDy = 1.0f / dy;
+            float invDz = 1.0f / dz;
+            float tNextX = invDx;
+            float tNextY = invDy;
+            float tNextZ = invDz;
+
+            float t = 0;
+            int number = 1;
+            int xIncrement = 0;
+            if (rayToTrans.origin.x > rayFromTrans.origin.x) {
+                xIncrement = 1;
+                number += IntUtil.floorToInt(rayToTrans.origin.x + 0.5f) - currentVoxX;
+                tNextX = (currentVoxX + 0.5f - rayFromTrans.origin.x) * invDx;
+            } else if (rayToTrans.origin.x < rayFromTrans.origin.x) {
+                xIncrement = -1;
+                number += currentVoxX - IntUtil.floorToInt(rayToTrans.origin.x + 0.5f);
+                tNextX = (rayFromTrans.origin.x - currentVoxX + 0.5f) * invDx;
+            }
+            int yIncrement = 0;
+            if (rayToTrans.origin.y > rayFromTrans.origin.y) {
+                yIncrement = 1;
+                number += IntUtil.floorToInt(rayToTrans.origin.y + 0.5f) - currentVoxY;
+                tNextY = (currentVoxY + 0.5f - rayFromTrans.origin.y) * invDy;
+            } else if (rayToTrans.origin.y < rayFromTrans.origin.y) {
+                yIncrement = -1;
+                number += currentVoxY - IntUtil.floorToInt(rayToTrans.origin.y + 0.5f);
+                tNextY = (rayFromTrans.origin.y - currentVoxY + 0.5f) * invDy;
+            }
+            int zIncrement = 0;
+            if (rayToTrans.origin.z > rayFromTrans.origin.z) {
+                zIncrement = 1;
+                number += IntUtil.floorToInt(rayToTrans.origin.z + 0.5f) - currentVoxZ;
+                tNextZ = (currentVoxZ + 0.5f - rayFromTrans.origin.z) * invDz;
+            } else if (rayToTrans.origin.z < rayFromTrans.origin.z) {
+                zIncrement = -1;
+                number += currentVoxZ - IntUtil.floorToInt(rayToTrans.origin.z + 0.5f);
+                tNextZ = (rayFromTrans.origin.z - currentVoxZ + 0.5f) * invDz;
+            }
+
+            for (; number > 0; --number)
+            {
+                CollisionShape childShape = world.getCollisionShapeAt(currentVoxX, currentVoxY, currentVoxZ);
+                if (childShape != null) {
+                    Vector3f pos = Stack.alloc(Vector3f.class);
+                    pos.set(currentVoxX, currentVoxY, currentVoxZ);
+                    Matrix4f transformMat = Stack.alloc(Matrix4f.class);
+                    transformMat.set(IDENTITY_MAT3F, pos, 1.0f);
+                    Transform childTransform = Stack.alloc(Transform.class);
+                    childTransform.set(transformMat);
+                    // replace collision shape so that callback can determine the triangle
+                    CollisionShape saveCollisionShape = collisionObject.getCollisionShape();
+                    collisionObject.internalSetTemporaryCollisionShape(childShape);
+                    collisionObject.setUserPointer(new Point3i(currentVoxX, currentVoxY, currentVoxZ));
+                    rayTestSingle(rayFromTrans, rayToTrans,
+                            collisionObject,
+                            childShape,
+                            childTransform,
+                            resultCallback);
+                    // restore
+                    collisionObject.internalSetTemporaryCollisionShape(saveCollisionShape);
+                    // TODO: Need an early out if hit
+                }
+
+                if (tNextX < tNextY) {
+                    if (tNextX < tNextZ) {
+                        currentVoxX += xIncrement;
+                        t = tNextX;
+                        tNextX += invDx;
+                    } else {
+                        currentVoxZ += zIncrement;
+                        t = tNextZ;
+                        tNextZ += invDz;
+                    }
+                } else {
+                    if (tNextY < tNextZ) {
+                        currentVoxY += yIncrement;
+                        t = tNextY;
+                        tNextY += invDy;
+                    } else {
+                        currentVoxZ += zIncrement;
+                        t = tNextZ;
+                        tNextZ += invDz;
+                    }
+                }
+            }
         } else if (collisionShape.isCompound()) {
             // todo: use AABB tree or other BVH acceleration structure!
             CompoundShape compoundShape = (CompoundShape) collisionShape;
@@ -467,6 +568,7 @@ public class CollisionWorld {
         }
     } else if (collisionShape.isVoxelWorld()) {
         VoxelWorldShape worldShape = (VoxelWorldShape) collisionShape;
+        // TODO: Replace with AABB sweep.
         Vector3f minAABB1 = Stack.alloc(Vector3f.class);
         Vector3f maxAABB1 = Stack.alloc(Vector3f.class);
         Vector3f minAABB2 = Stack.alloc(Vector3f.class);
@@ -482,9 +584,6 @@ public class CollisionWorld {
         max.y = IntUtil.floorToInt(Math.max(maxAABB1.y, maxAABB2.y) + 0.5f);
         max.z = IntUtil.floorToInt(Math.max(maxAABB1.z, maxAABB2.z) + 0.5f);
 
-        Matrix3f rot = new Matrix3f();
-        rot.setIdentity();
-
         for (int x = min.x; x <= max.x; ++x) {
             for (int y = min.y; y <= max.y; ++y) {
                 for (int z = min.z; z <= max.z; ++z) {
@@ -494,7 +593,7 @@ public class CollisionWorld {
                     }
                     Vector3f pos = Stack.alloc(Vector3f.class);
                     pos.set(x, y, z);
-                    Transform childTrans = new Transform(new Matrix4f(rot, pos, 1.0f));
+                    Transform childTrans = new Transform(new Matrix4f(IDENTITY_MAT3F, pos, 1.0f));
                     // replace collision shape so that callback can determine the triangle
                     CollisionShape saveCollisionShape = collisionObject.getCollisionShape();
                     collisionObject.internalSetTemporaryCollisionShape(childShape);
@@ -701,6 +800,41 @@ public class CollisionWorld {
 
             closestHitFraction = rayResult.hitFraction;
             collisionObject = rayResult.collisionObject;
+            if (normalInWorldSpace) {
+                hitNormalWorld.set(rayResult.hitNormalLocal);
+            } else {
+                // need to transform normal into worldspace
+                hitNormalWorld.set(rayResult.hitNormalLocal);
+                collisionObject.getWorldTransform(Stack.alloc(Transform.class)).basis.transform(hitNormalWorld);
+            }
+
+            VectorUtil.setInterpolate3(hitPointWorld, rayFromWorld, rayToWorld, rayResult.hitFraction);
+            return rayResult.hitFraction;
+        }
+    }
+
+    public static class ClosestRayResultWithUserDataCallback extends RayResultCallback {
+        public final Vector3f rayFromWorld = new Vector3f(); //used to calculate hitPointWorld from hitFraction
+        public final Vector3f rayToWorld = new Vector3f();
+
+        public final Vector3f hitNormalWorld = new Vector3f();
+        public final Vector3f hitPointWorld = new Vector3f();
+
+        public Object userData = null;
+
+        public ClosestRayResultWithUserDataCallback(Vector3f rayFromWorld, Vector3f rayToWorld) {
+            this.rayFromWorld.set(rayFromWorld);
+            this.rayToWorld.set(rayToWorld);
+        }
+
+        @Override
+        public float addSingleResult(LocalRayResult rayResult, boolean normalInWorldSpace) {
+            // caller already does the filter on the closestHitFraction
+            assert (rayResult.hitFraction <= closestHitFraction);
+
+            closestHitFraction = rayResult.hitFraction;
+            collisionObject = rayResult.collisionObject;
+            userData = collisionObject.getUserPointer();
             if (normalInWorldSpace) {
                 hitNormalWorld.set(rayResult.hitNormalLocal);
             } else {
