@@ -8,3 +8,8 @@
 # Ouptut Dirs #
 target
 JStackAlloc/target
+
+# intelliJ project files
+*.iml
+*.ipr
+*.iws

@@ -106,6 +106,20 @@ public class DiscreteDynamicsWorld extends DynamicsWorld {
 		}
 	}
 
+    public void awakenRigidBodiesInArea(Vector3f min, Vector3f max) {
+        for (int i = 0; i < collisionObjects.size(); i++) {
+            CollisionObject collisionObject = collisionObjects.getQuick(i);
+            if (!collisionObject.isStaticOrKinematicObject() && !collisionObject.isActive()) {
+                Vector3f otherMin = Stack.alloc(Vector3f.class);
+                Vector3f otherMax = Stack.alloc(Vector3f.class);
+                collisionObject.getCollisionShape().getAabb(collisionObject.getWorldTransform(Stack.alloc(Transform.class)), otherMin, otherMax);
+                if (AabbUtil2.testAabbAgainstAabb2(min, max, otherMin, otherMax)) {
+                    collisionObject.activate();
+                }
+            }
+        }
+    }
+
 	@Override
 	public void debugDrawWorld() {
 		if (getDebugDrawer() != null && (getDebugDrawer().getDebugMode() & DebugDrawModes.DRAW_CONTACT_POINTS) != 0) {
