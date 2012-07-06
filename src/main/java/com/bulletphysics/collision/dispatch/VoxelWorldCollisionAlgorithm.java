@@ -108,7 +108,7 @@ public class VoxelWorldCollisionAlgorithm extends CollisionAlgorithm {
                             collisionAlgMap.put(blockPos, alg);
                         }
 
-                        childMat.set(rot, new Vector3f(x, y, z), 1.0f);
+                        childMat.set(rot, new Vector3f(x + childInfo.getCollisionOffset().x, y + childInfo.getCollisionOffset().y, z + childInfo.getCollisionOffset().z), 1.0f);
                         newChildWorldTrans.set(childMat);
                         colObj.setWorldTransform(newChildWorldTrans);
                         colObj.setInterpolationWorldTransform(newChildWorldTrans);

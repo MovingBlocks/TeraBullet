@@ -383,6 +383,7 @@ public class CollisionWorld {
                 if (childInfo.isColliding()) {
                     Vector3f pos = Stack.alloc(Vector3f.class);
                     pos.set(currentVoxX, currentVoxY, currentVoxZ);
+                    pos.add(childInfo.getCollisionOffset());
                     Matrix4f transformMat = Stack.alloc(Matrix4f.class);
                     transformMat.set(IDENTITY_MAT3F, pos, 1.0f);
                     Transform childTransform = Stack.alloc(Transform.class);
@@ -594,6 +595,7 @@ public class CollisionWorld {
                     }
                     Vector3f pos = Stack.alloc(Vector3f.class);
                     pos.set(x, y, z);
+                    pos.add(childInfo.getCollisionOffset());
                     Transform childTrans = new Transform(new Matrix4f(IDENTITY_MAT3F, pos, 1.0f));
                     // replace collision shape so that callback can determine the triangle
                     CollisionShape saveCollisionShape = collisionObject.getCollisionShape();

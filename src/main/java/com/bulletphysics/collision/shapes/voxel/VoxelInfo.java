@@ -18,6 +18,7 @@ package com.bulletphysics.collision.shapes.voxel;
 
 import com.bulletphysics.collision.shapes.CollisionShape;
 
+import javax.vecmath.Vector3f;
 import java.util.EnumSet;
 
 /**
@@ -40,6 +41,11 @@ public interface VoxelInfo {
      * @return The collision shape for the voxel. Reuse these as much as possible.
      */
     CollisionShape getCollisionShape();
+
+    /**
+     * @return The offset of the collision shape from the center of the voxel.
+     */
+    Vector3f getCollisionOffset();
 
     /**
      * @return Does this voxel block rigid bodies
