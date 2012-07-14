@@ -23,6 +23,7 @@
 
 package com.bulletphysics.collision.narrowphase;
 
+import com.bulletphysics.BulletGlobals;
 import com.bulletphysics.collision.narrowphase.DiscreteCollisionDetectorInterface.ClosestPointInput;
 import com.bulletphysics.collision.shapes.ConvexShape;
 import com.bulletphysics.linearmath.Transform;
@@ -59,7 +60,9 @@ public class GjkConvexCast extends ConvexCast {
 		this.convexA = convexA;
 		this.convexB = convexB;
 	}
-	
+
+    // Note: Incorporates this fix http://code.google.com/p/bullet/source/detail?r=2362
+    // But doesn't add in angular velocity
 	public boolean calcTimeOfImpact(Transform fromA, Transform toA, Transform fromB, Transform toB, CastResult result) {
 		simplexSolver.reset();
 
@@ -71,8 +74,14 @@ public class GjkConvexCast extends ConvexCast {
 		linVelA.sub(toA.origin, fromA.origin);
 		linVelB.sub(toB.origin, fromB.origin);
 
-		float radius = 0.001f;
-		float lambda = 0f;
+        Vector3f relLinVel = Stack.alloc(Vector3f.class);
+        relLinVel.sub(linVelB, linVelA);
+        float relLinVelocLength = relLinVel.length();
+        if (relLinVelocLength == 0) {
+            return false;
+        }
+
+        float lambda = 0f;
 		Vector3f v = Stack.alloc(Vector3f.class);
 		v.set(1f, 0f, 0f);
 
@@ -82,8 +91,6 @@ public class GjkConvexCast extends ConvexCast {
 		n.set(0f, 0f, 0f);
 		boolean hasResult = false;
 		Vector3f c = Stack.alloc(Vector3f.class);
-		Vector3f r = Stack.alloc(Vector3f.class);
-		r.sub(linVelA, linVelB);
 
 		float lastLambda = lambda;
 		//btScalar epsilon = btScalar(0.001);
@@ -102,8 +109,6 @@ public class GjkConvexCast extends ConvexCast {
 		ClosestPointInput input = pointInputsPool.get();
 		input.init();
 		try {
-			// we don't use margins during CCD
-			//	gjk.setIgnoreMargin(true);
 
 			input.transformA.set(fromA);
 			input.transformB.set(fromB);
@@ -114,22 +119,31 @@ public class GjkConvexCast extends ConvexCast {
 
 			if (hasResult) {
 				float dist;
-				dist = pointCollector.distance;
+				dist = pointCollector.distance + result.allowedPenetration;
 				n.set(pointCollector.normalOnBInWorld);
 
-				// not close enough
-				while (dist > radius) {
-					numIter++;
+                float projectedLinearVelocity = relLinVel.dot(n);
+                if ((projectedLinearVelocity) <= BulletGlobals.SIMD_EPSILON) {
+                    return false;
+                }
+
+                // not close enough
+				while (dist > BulletGlobals.SIMD_EPSILON) {
+					/*numIter++;
 					if (numIter > maxIter) {
 						return false; // todo: report a failure
-					}
+					} */
 					float dLambda = 0f;
 
-					float projectedLinearVelocity = r.dot(n);
+					projectedLinearVelocity = relLinVel.dot(n);
+
+                    if ((projectedLinearVelocity) <= BulletGlobals.SIMD_EPSILON) {
+                        return false;
+                    }
 
 					dLambda = dist / (projectedLinearVelocity);
 
-					lambda = lambda - dLambda;
+					lambda = lambda + dLambda;
 
 					if (lambda > 1f) {
 						return false;
@@ -140,8 +154,6 @@ public class GjkConvexCast extends ConvexCast {
 					
 					if (lambda <= lastLambda) {
 						return false;
-					//n.setValue(0,0,0);
-					//break;
 					}
 					lastLambda = lambda;
 
@@ -152,29 +164,21 @@ public class GjkConvexCast extends ConvexCast {
 
 					gjk.getClosestPoints(input, pointCollector, null);
 					if (pointCollector.hasResult) {
-						if (pointCollector.distance < 0f) {
-							result.fraction = lastLambda;
-							n.set(pointCollector.normalOnBInWorld);
-							result.normal.set(n);
-							result.hitPoint.set(pointCollector.pointInWorld);
-							return true;
-						}
+                        dist = pointCollector.distance + result.allowedPenetration;
 						c.set(pointCollector.pointInWorld);
 						n.set(pointCollector.normalOnBInWorld);
-						dist = pointCollector.distance;
 					}
 					else {
 						// ??
 						return false;
 					}
+                    numIter++;
+                    if (numIter > maxIter) {
+                        return false;
+                    }
 
 				}
 
-				// is n normalized?
-				// don't report time of impact for motion away from the contact normal (or causes minor penetration)
-				if (n.dot(r) >= -result.allowedPenetration) {
-					return false;
-				}
 				result.fraction = lambda;
 				result.normal.set(n);
 				result.hitPoint.set(c);
