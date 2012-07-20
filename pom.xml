@@ -12,7 +12,8 @@
       <groupId>jezek2</groupId>
       <artifactId>jstackalloc</artifactId>
       <version>20080716</version>
-      <scope>provided</scope>
+      <scope>compile</scope>
+        <optional>true</optional>
     </dependency>
     <dependency>
 	  <groupId>java3d</groupId>
