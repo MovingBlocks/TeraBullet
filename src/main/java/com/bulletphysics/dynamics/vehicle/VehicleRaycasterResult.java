@@ -27,13 +27,13 @@ import javax.vecmath.Vector3f;
 
 /**
  * Vehicle raycaster result.
- * 
+ *
  * @author jezek2
  */
 public class VehicleRaycasterResult {
-	
-	public final Vector3f hitPointInWorld  = new Vector3f();
-	public final Vector3f hitNormalInWorld  = new Vector3f();
-	public float distFraction = -1f;
+
+    public final Vector3f hitPointInWorld = new Vector3f();
+    public final Vector3f hitNormalInWorld = new Vector3f();
+    public float distFraction = -1f;
 
 }

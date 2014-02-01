@@ -25,106 +25,104 @@ package com.bulletphysics;
 
 import com.bulletphysics.util.ArrayPool;
 import com.bulletphysics.util.ObjectPool;
-import cz.advel.stack.Stack;
 
 /**
  * Bullet global settings and constants.
- * 
+ *
  * @author jezek2
  */
 public class BulletGlobals {
-	
-	public static final boolean DEBUG = false;
-	
-	public static final float CONVEX_DISTANCE_MARGIN = 0.04f;
-	public static final float FLT_EPSILON = 1.19209290e-07f;
-	public static final float SIMD_EPSILON = FLT_EPSILON;
-	
-	public static final float SIMD_2_PI = 6.283185307179586232f;
-	public static final float SIMD_PI = SIMD_2_PI * 0.5f;
-	public static final float SIMD_HALF_PI = SIMD_2_PI * 0.25f;
-	public static final float SIMD_RADS_PER_DEG = SIMD_2_PI / 360f;
-	public static final float SIMD_DEGS_PER_RAD = 360f / SIMD_2_PI;
-	public static final float SIMD_INFINITY = Float.MAX_VALUE;
 
-	////////////////////////////////////////////////////////////////////////////
+    public static final boolean DEBUG = false;
 
-	private static ThreadLocal<BulletGlobals> threadLocal = new ThreadLocal<BulletGlobals>() {
-		@Override
-		protected BulletGlobals initialValue() {
-			return new BulletGlobals();
-		}
-	};
+    public static final float CONVEX_DISTANCE_MARGIN = 0.04f;
+    public static final float FLT_EPSILON = 1.19209290e-07f;
+    public static final float SIMD_EPSILON = FLT_EPSILON;
 
-	private ContactDestroyedCallback gContactDestroyedCallback;
-	private ContactAddedCallback gContactAddedCallback;
-	private ContactProcessedCallback gContactProcessedCallback;
+    public static final float SIMD_2_PI = 6.283185307179586232f;
+    public static final float SIMD_PI = SIMD_2_PI * 0.5f;
+    public static final float SIMD_HALF_PI = SIMD_2_PI * 0.25f;
+    public static final float SIMD_RADS_PER_DEG = SIMD_2_PI / 360f;
+    public static final float SIMD_DEGS_PER_RAD = 360f / SIMD_2_PI;
+    public static final float SIMD_INFINITY = Float.MAX_VALUE;
 
-	private float contactBreakingThreshold = 0.02f;
-	// RigidBody
-	private float deactivationTime = 2f;
-	private boolean disableDeactivation = false;
-	
-	public static ContactAddedCallback getContactAddedCallback() {
-		return threadLocal.get().gContactAddedCallback;
-	}
+    ////////////////////////////////////////////////////////////////////////////
 
-	public static void setContactAddedCallback(ContactAddedCallback callback) {
-		threadLocal.get().gContactAddedCallback = callback;
-	}
+    private static ThreadLocal<BulletGlobals> threadLocal = new ThreadLocal<BulletGlobals>() {
+        @Override
+        protected BulletGlobals initialValue() {
+            return new BulletGlobals();
+        }
+    };
 
-	public static ContactDestroyedCallback getContactDestroyedCallback() {
-		return threadLocal.get().gContactDestroyedCallback;
-	}
+    private ContactDestroyedCallback gContactDestroyedCallback;
+    private ContactAddedCallback gContactAddedCallback;
+    private ContactProcessedCallback gContactProcessedCallback;
 
-	public static void setContactDestroyedCallback(ContactDestroyedCallback callback) {
-		threadLocal.get().gContactDestroyedCallback = callback;
-	}
+    private float contactBreakingThreshold = 0.02f;
+    // RigidBody
+    private float deactivationTime = 2f;
+    private boolean disableDeactivation = false;
 
-	public static ContactProcessedCallback getContactProcessedCallback() {
-		return threadLocal.get().gContactProcessedCallback;
-	}
+    public static ContactAddedCallback getContactAddedCallback() {
+        return threadLocal.get().gContactAddedCallback;
+    }
 
-	public static void setContactProcessedCallback(ContactProcessedCallback callback) {
-		threadLocal.get().gContactProcessedCallback = callback;
-	}
-	
-	////////////////////////////////////////////////////////////////////////////
+    public static void setContactAddedCallback(ContactAddedCallback callback) {
+        threadLocal.get().gContactAddedCallback = callback;
+    }
 
-	public static float getContactBreakingThreshold() {
-		return threadLocal.get().contactBreakingThreshold;
-	}
+    public static ContactDestroyedCallback getContactDestroyedCallback() {
+        return threadLocal.get().gContactDestroyedCallback;
+    }
 
-	public static void setContactBreakingThreshold(float threshold) {
-		threadLocal.get().contactBreakingThreshold = threshold;
-	}
+    public static void setContactDestroyedCallback(ContactDestroyedCallback callback) {
+        threadLocal.get().gContactDestroyedCallback = callback;
+    }
 
-	public static float getDeactivationTime() {
-		return threadLocal.get().deactivationTime;
-	}
+    public static ContactProcessedCallback getContactProcessedCallback() {
+        return threadLocal.get().gContactProcessedCallback;
+    }
 
-	public static void setDeactivationTime(float time) {
-		threadLocal.get().deactivationTime = time;
-	}
+    public static void setContactProcessedCallback(ContactProcessedCallback callback) {
+        threadLocal.get().gContactProcessedCallback = callback;
+    }
 
-	public static boolean isDeactivationDisabled() {
-		return threadLocal.get().disableDeactivation;
-	}
+    ////////////////////////////////////////////////////////////////////////////
 
-	public static void setDeactivationDisabled(boolean disable) {
-		threadLocal.get().disableDeactivation = disable;
-	}
+    public static float getContactBreakingThreshold() {
+        return threadLocal.get().contactBreakingThreshold;
+    }
 
-	////////////////////////////////////////////////////////////////////////////
+    public static void setContactBreakingThreshold(float threshold) {
+        threadLocal.get().contactBreakingThreshold = threshold;
+    }
 
-	/**
-	 * Cleans all current thread specific settings and caches.
-	 */
-	public static void cleanCurrentThread() {
-		threadLocal.remove();
-		Stack.libraryCleanCurrentThread();
-		ObjectPool.cleanCurrentThread();
-		ArrayPool.cleanCurrentThread();
-	}
+    public static float getDeactivationTime() {
+        return threadLocal.get().deactivationTime;
+    }
+
+    public static void setDeactivationTime(float time) {
+        threadLocal.get().deactivationTime = time;
+    }
+
+    public static boolean isDeactivationDisabled() {
+        return threadLocal.get().disableDeactivation;
+    }
+
+    public static void setDeactivationDisabled(boolean disable) {
+        threadLocal.get().disableDeactivation = disable;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Cleans all current thread specific settings and caches.
+     */
+    public static void cleanCurrentThread() {
+        threadLocal.remove();
+        ObjectPool.cleanCurrentThread();
+        ArrayPool.cleanCurrentThread();
+    }
 
 }

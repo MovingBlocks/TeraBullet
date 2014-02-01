@@ -25,13 +25,13 @@ package com.bulletphysics.collision.shapes;
 
 /**
  * Scalar type, used when accessing triangle mesh data.
- * 
+ *
  * @author jezek2
  */
 public enum ScalarType {
-	FLOAT,
-	DOUBLE,
-	INTEGER,
-	SHORT,
-	FIXEDPOINT88
+    FLOAT,
+    DOUBLE,
+    INTEGER,
+    SHORT,
+    FIXEDPOINT88
 }

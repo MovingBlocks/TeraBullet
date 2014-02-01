@@ -29,15 +29,14 @@ import com.bulletphysics.util.ObjectArrayList;
 import javax.vecmath.Vector3f;
 
 /**
- *
  * @author jezek2
  */
 class PHullResult {
-	
-	public int vcount = 0;
-	public int indexCount = 0;
-	public int faceCount = 0;
-	public ObjectArrayList<Vector3f> vertices = null;
-	public IntArrayList indices = new IntArrayList();
-	
+
+    public int vcount = 0;
+    public int indexCount = 0;
+    public int faceCount = 0;
+    public ObjectArrayList<Vector3f> vertices = null;
+    public IntArrayList indices = new IntArrayList();
+
 }

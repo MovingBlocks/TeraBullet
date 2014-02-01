@@ -30,38 +30,36 @@ package com.bulletphysics.extras.gimpact;
 import com.bulletphysics.collision.shapes.StaticPlaneShape;
 import com.bulletphysics.linearmath.Transform;
 import com.bulletphysics.linearmath.VectorUtil;
-import cz.advel.stack.Stack;
 
 import javax.vecmath.Vector3f;
 import javax.vecmath.Vector4f;
 
 /**
- *
  * @author jezek2
  */
 class PlaneShape {
 
-	public static void get_plane_equation(StaticPlaneShape shape, Vector4f equation) {
-		Vector3f tmp = Stack.alloc(Vector3f.class);
-		equation.set(shape.getPlaneNormal(tmp));
-		equation.w = shape.getPlaneConstant();
-	}
-	
-	public static void get_plane_equation_transformed(StaticPlaneShape shape, Transform trans, Vector4f equation) {
-		get_plane_equation(shape, equation);
+    public static void get_plane_equation(StaticPlaneShape shape, Vector4f equation) {
+        Vector3f tmp = new Vector3f();
+        equation.set(shape.getPlaneNormal(tmp));
+        equation.w = shape.getPlaneConstant();
+    }
 
-		Vector3f tmp = Stack.alloc(Vector3f.class);
+    public static void get_plane_equation_transformed(StaticPlaneShape shape, Transform trans, Vector4f equation) {
+        get_plane_equation(shape, equation);
 
-		trans.basis.getRow(0, tmp);
-		float x = VectorUtil.dot3(tmp, equation);
-		trans.basis.getRow(1, tmp);
-		float y = VectorUtil.dot3(tmp, equation);
-		trans.basis.getRow(2, tmp);
-		float z = VectorUtil.dot3(tmp, equation);
+        Vector3f tmp = new Vector3f();
 
-		float w = VectorUtil.dot3(trans.origin, equation) + equation.w;
+        trans.basis.getRow(0, tmp);
+        float x = VectorUtil.dot3(tmp, equation);
+        trans.basis.getRow(1, tmp);
+        float y = VectorUtil.dot3(tmp, equation);
+        trans.basis.getRow(2, tmp);
+        float z = VectorUtil.dot3(tmp, equation);
 
-		equation.set(x, y, z, w);
-	}
-	
+        float w = VectorUtil.dot3(trans.origin, equation) + equation.w;
+
+        equation.set(x, y, z, w);
+    }
+
 }

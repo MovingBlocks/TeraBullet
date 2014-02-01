@@ -27,132 +27,131 @@ import com.bulletphysics.collision.broadphase.BroadphaseNativeType;
 import com.bulletphysics.linearmath.Transform;
 import com.bulletphysics.linearmath.TransformUtil;
 import com.bulletphysics.linearmath.VectorUtil;
-import cz.advel.stack.Stack;
 
 import javax.vecmath.Vector3f;
 
 /**
  * StaticPlaneShape simulates an infinite non-moving (static) collision plane.
- * 
+ *
  * @author jezek2
  */
 public class StaticPlaneShape extends ConcaveShape {
 
-	protected final Vector3f localAabbMin = new Vector3f();
-	protected final Vector3f localAabbMax = new Vector3f();
-	
-	protected final Vector3f planeNormal = new Vector3f();
-	protected float planeConstant;
-	protected final Vector3f localScaling = new Vector3f(0f, 0f, 0f);
+    protected final Vector3f localAabbMin = new Vector3f();
+    protected final Vector3f localAabbMax = new Vector3f();
 
-	public StaticPlaneShape(Vector3f planeNormal, float planeConstant) {
-		this.planeNormal.normalize(planeNormal);
-		this.planeConstant = planeConstant;
-	}
+    protected final Vector3f planeNormal = new Vector3f();
+    protected float planeConstant;
+    protected final Vector3f localScaling = new Vector3f(0f, 0f, 0f);
 
-	public Vector3f getPlaneNormal(Vector3f out) {
-		out.set(planeNormal);
-		return out;
-	}
+    public StaticPlaneShape(Vector3f planeNormal, float planeConstant) {
+        this.planeNormal.normalize(planeNormal);
+        this.planeConstant = planeConstant;
+    }
 
-	public float getPlaneConstant() {
-		return planeConstant;
-	}
-	
-	@Override
-	public void processAllTriangles(TriangleCallback callback, Vector3f aabbMin, Vector3f aabbMax) {
-		Vector3f tmp = Stack.alloc(Vector3f.class);
-		Vector3f tmp1 = Stack.alloc(Vector3f.class);
-		Vector3f tmp2 = Stack.alloc(Vector3f.class);
+    public Vector3f getPlaneNormal(Vector3f out) {
+        out.set(planeNormal);
+        return out;
+    }
 
-		Vector3f halfExtents = Stack.alloc(Vector3f.class);
-		halfExtents.sub(aabbMax, aabbMin);
-		halfExtents.scale(0.5f);
+    public float getPlaneConstant() {
+        return planeConstant;
+    }
 
-		float radius = halfExtents.length();
-		Vector3f center = Stack.alloc(Vector3f.class);
-		center.add(aabbMax, aabbMin);
-		center.scale(0.5f);
+    @Override
+    public void processAllTriangles(TriangleCallback callback, Vector3f aabbMin, Vector3f aabbMax) {
+        Vector3f tmp = new Vector3f();
+        Vector3f tmp1 = new Vector3f();
+        Vector3f tmp2 = new Vector3f();
 
-		// this is where the triangles are generated, given AABB and plane equation (normal/constant)
+        Vector3f halfExtents = new Vector3f();
+        halfExtents.sub(aabbMax, aabbMin);
+        halfExtents.scale(0.5f);
 
-		Vector3f tangentDir0 = Stack.alloc(Vector3f.class), tangentDir1 = Stack.alloc(Vector3f.class);
+        float radius = halfExtents.length();
+        Vector3f center = new Vector3f();
+        center.add(aabbMax, aabbMin);
+        center.scale(0.5f);
 
-		// tangentDir0/tangentDir1 can be precalculated
-		TransformUtil.planeSpace1(planeNormal, tangentDir0, tangentDir1);
+        // this is where the triangles are generated, given AABB and plane equation (normal/constant)
 
-		Vector3f supVertex0 = Stack.alloc(Vector3f.class), supVertex1 = Stack.alloc(Vector3f.class);
+        Vector3f tangentDir0 = new Vector3f(), tangentDir1 = new Vector3f();
 
-		Vector3f projectedCenter = Stack.alloc(Vector3f.class);
-		tmp.scale(planeNormal.dot(center) - planeConstant, planeNormal);
-		projectedCenter.sub(center, tmp);
+        // tangentDir0/tangentDir1 can be precalculated
+        TransformUtil.planeSpace1(planeNormal, tangentDir0, tangentDir1);
 
-		Vector3f[] triangle = new Vector3f[] { Stack.alloc(Vector3f.class), Stack.alloc(Vector3f.class), Stack.alloc(Vector3f.class) };
+        Vector3f supVertex0 = new Vector3f(), supVertex1 = new Vector3f();
 
-		tmp1.scale(radius, tangentDir0);
-		tmp2.scale(radius, tangentDir1);
-		VectorUtil.add(triangle[0], projectedCenter, tmp1, tmp2);
+        Vector3f projectedCenter = new Vector3f();
+        tmp.scale(planeNormal.dot(center) - planeConstant, planeNormal);
+        projectedCenter.sub(center, tmp);
 
-		tmp1.scale(radius, tangentDir0);
-		tmp2.scale(radius, tangentDir1);
-		tmp.sub(tmp1, tmp2);
-		VectorUtil.add(triangle[1], projectedCenter, tmp);
+        Vector3f[] triangle = new Vector3f[]{new Vector3f(), new Vector3f(), new Vector3f()};
 
-		tmp1.scale(radius, tangentDir0);
-		tmp2.scale(radius, tangentDir1);
-		tmp.sub(tmp1, tmp2);
-		triangle[2].sub(projectedCenter, tmp);
+        tmp1.scale(radius, tangentDir0);
+        tmp2.scale(radius, tangentDir1);
+        VectorUtil.add(triangle[0], projectedCenter, tmp1, tmp2);
 
-		callback.processTriangle(triangle, 0, 0);
+        tmp1.scale(radius, tangentDir0);
+        tmp2.scale(radius, tangentDir1);
+        tmp.sub(tmp1, tmp2);
+        VectorUtil.add(triangle[1], projectedCenter, tmp);
 
-		tmp1.scale(radius, tangentDir0);
-		tmp2.scale(radius, tangentDir1);
-		tmp.sub(tmp1, tmp2);
-		triangle[0].sub(projectedCenter, tmp);
+        tmp1.scale(radius, tangentDir0);
+        tmp2.scale(radius, tangentDir1);
+        tmp.sub(tmp1, tmp2);
+        triangle[2].sub(projectedCenter, tmp);
 
-		tmp1.scale(radius, tangentDir0);
-		tmp2.scale(radius, tangentDir1);
-		tmp.add(tmp1, tmp2);
-		triangle[1].sub(projectedCenter, tmp);
+        callback.processTriangle(triangle, 0, 0);
 
-		tmp1.scale(radius, tangentDir0);
-		tmp2.scale(radius, tangentDir1);
-		VectorUtil.add(triangle[2], projectedCenter, tmp1, tmp2);
+        tmp1.scale(radius, tangentDir0);
+        tmp2.scale(radius, tangentDir1);
+        tmp.sub(tmp1, tmp2);
+        triangle[0].sub(projectedCenter, tmp);
 
-		callback.processTriangle(triangle, 0, 1);
-	}
+        tmp1.scale(radius, tangentDir0);
+        tmp2.scale(radius, tangentDir1);
+        tmp.add(tmp1, tmp2);
+        triangle[1].sub(projectedCenter, tmp);
 
-	@Override
-	public void getAabb(Transform t, Vector3f aabbMin, Vector3f aabbMax) {
-		aabbMin.set(-1e30f, -1e30f, -1e30f);
-		aabbMax.set(1e30f, 1e30f, 1e30f);
-	}
+        tmp1.scale(radius, tangentDir0);
+        tmp2.scale(radius, tangentDir1);
+        VectorUtil.add(triangle[2], projectedCenter, tmp1, tmp2);
 
-	@Override
-	public BroadphaseNativeType getShapeType() {
-		return BroadphaseNativeType.STATIC_PLANE_PROXYTYPE;
-	}
+        callback.processTriangle(triangle, 0, 1);
+    }
 
-	@Override
-	public void setLocalScaling(Vector3f scaling) {
-		localScaling.set(scaling);
-	}
+    @Override
+    public void getAabb(Transform t, Vector3f aabbMin, Vector3f aabbMax) {
+        aabbMin.set(-1e30f, -1e30f, -1e30f);
+        aabbMax.set(1e30f, 1e30f, 1e30f);
+    }
 
-	@Override
-	public Vector3f getLocalScaling(Vector3f out) {
-		out.set(localScaling);
-		return out;
-	}
+    @Override
+    public BroadphaseNativeType getShapeType() {
+        return BroadphaseNativeType.STATIC_PLANE_PROXYTYPE;
+    }
 
-	@Override
-	public void calculateLocalInertia(float mass, Vector3f inertia) {
-		//moving concave objects not supported
-		inertia.set(0f, 0f, 0f);
-	}
+    @Override
+    public void setLocalScaling(Vector3f scaling) {
+        localScaling.set(scaling);
+    }
 
-	@Override
-	public String getName() {
-		return "STATICPLANE";
-	}
+    @Override
+    public Vector3f getLocalScaling(Vector3f out) {
+        out.set(localScaling);
+        return out;
+    }
+
+    @Override
+    public void calculateLocalInertia(float mass, Vector3f inertia) {
+        //moving concave objects not supported
+        inertia.set(0f, 0f, 0f);
+    }
+
+    @Override
+    public String getName() {
+        return "STATICPLANE";
+    }
 
 }

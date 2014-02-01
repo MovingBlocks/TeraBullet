@@ -26,82 +26,81 @@ package com.bulletphysics.dynamics.constraintsolver;
 import com.bulletphysics.dynamics.RigidBody;
 import com.bulletphysics.linearmath.Transform;
 import com.bulletphysics.linearmath.TransformUtil;
-import cz.advel.stack.Stack;
 
 import javax.vecmath.Vector3f;
 
 /**
  * SolverBody is an internal data structure for the constraint solver. Only necessary
  * data is packed to increase cache coherence/performance.
- * 
+ *
  * @author jezek2
  */
 public class SolverBody {
-	
-	//protected final BulletStack stack = BulletStack.get();
 
-	public final Vector3f angularVelocity = new Vector3f();
-	public float angularFactor;
-	public float invMass;
-	public float friction;
-	public RigidBody originalBody;
-	public final Vector3f linearVelocity = new Vector3f();
-	public final Vector3f centerOfMassPosition = new Vector3f();
+    //protected final BulletStack stack = BulletStack.get();
 
-	public final Vector3f pushVelocity = new Vector3f();
-	public final Vector3f turnVelocity = new Vector3f();
-	
-	public void getVelocityInLocalPoint(Vector3f rel_pos, Vector3f velocity) {
-		Vector3f tmp = Stack.alloc(Vector3f.class);
-		tmp.cross(angularVelocity, rel_pos);
-		velocity.add(linearVelocity, tmp);
-	}
+    public final Vector3f angularVelocity = new Vector3f();
+    public float angularFactor;
+    public float invMass;
+    public float friction;
+    public RigidBody originalBody;
+    public final Vector3f linearVelocity = new Vector3f();
+    public final Vector3f centerOfMassPosition = new Vector3f();
 
-	/**
-	 * Optimization for the iterative solver: avoid calculating constant terms involving inertia, normal, relative position.
-	 */
-	public void internalApplyImpulse(Vector3f linearComponent, Vector3f angularComponent, float impulseMagnitude) {
-		if (invMass != 0f) {
-			linearVelocity.scaleAdd(impulseMagnitude, linearComponent, linearVelocity);
-			angularVelocity.scaleAdd(impulseMagnitude * angularFactor, angularComponent, angularVelocity);
-		}
-	}
+    public final Vector3f pushVelocity = new Vector3f();
+    public final Vector3f turnVelocity = new Vector3f();
 
-	public void internalApplyPushImpulse(Vector3f linearComponent, Vector3f angularComponent, float impulseMagnitude) {
-		if (invMass != 0f) {
-			pushVelocity.scaleAdd(impulseMagnitude, linearComponent, pushVelocity);
-			turnVelocity.scaleAdd(impulseMagnitude * angularFactor, angularComponent, turnVelocity);
-		}
-	}
-	
-	public void writebackVelocity() {
-		if (invMass != 0f) {
-			originalBody.setLinearVelocity(linearVelocity);
-			originalBody.setAngularVelocity(angularVelocity);
-			//m_originalBody->setCompanionId(-1);
-		}
-	}
+    public void getVelocityInLocalPoint(Vector3f rel_pos, Vector3f velocity) {
+        Vector3f tmp = new Vector3f();
+        tmp.cross(angularVelocity, rel_pos);
+        velocity.add(linearVelocity, tmp);
+    }
 
-	public void writebackVelocity(float timeStep) {
-		if (invMass != 0f) {
-			originalBody.setLinearVelocity(linearVelocity);
-			originalBody.setAngularVelocity(angularVelocity);
+    /**
+     * Optimization for the iterative solver: avoid calculating constant terms involving inertia, normal, relative position.
+     */
+    public void internalApplyImpulse(Vector3f linearComponent, Vector3f angularComponent, float impulseMagnitude) {
+        if (invMass != 0f) {
+            linearVelocity.scaleAdd(impulseMagnitude, linearComponent, linearVelocity);
+            angularVelocity.scaleAdd(impulseMagnitude * angularFactor, angularComponent, angularVelocity);
+        }
+    }
 
-			// correct the position/orientation based on push/turn recovery
-			Transform newTransform = Stack.alloc(Transform.class);
-			Transform curTrans = originalBody.getWorldTransform(Stack.alloc(Transform.class));
-			TransformUtil.integrateTransform(curTrans, pushVelocity, turnVelocity, timeStep, newTransform);
-			originalBody.setWorldTransform(newTransform);
+    public void internalApplyPushImpulse(Vector3f linearComponent, Vector3f angularComponent, float impulseMagnitude) {
+        if (invMass != 0f) {
+            pushVelocity.scaleAdd(impulseMagnitude, linearComponent, pushVelocity);
+            turnVelocity.scaleAdd(impulseMagnitude * angularFactor, angularComponent, turnVelocity);
+        }
+    }
 
-			//m_originalBody->setCompanionId(-1);
-		}
-	}
-	
-	public void readVelocity() {
-		if (invMass != 0f) {
-			originalBody.getLinearVelocity(linearVelocity);
-			originalBody.getAngularVelocity(angularVelocity);
-		}
-	}
-	
+    public void writebackVelocity() {
+        if (invMass != 0f) {
+            originalBody.setLinearVelocity(linearVelocity);
+            originalBody.setAngularVelocity(angularVelocity);
+            //m_originalBody->setCompanionId(-1);
+        }
+    }
+
+    public void writebackVelocity(float timeStep) {
+        if (invMass != 0f) {
+            originalBody.setLinearVelocity(linearVelocity);
+            originalBody.setAngularVelocity(angularVelocity);
+
+            // correct the position/orientation based on push/turn recovery
+            Transform newTransform = new Transform();
+            Transform curTrans = originalBody.getWorldTransform(new Transform());
+            TransformUtil.integrateTransform(curTrans, pushVelocity, turnVelocity, timeStep, newTransform);
+            originalBody.setWorldTransform(newTransform);
+
+            //m_originalBody->setCompanionId(-1);
+        }
+    }
+
+    public void readVelocity() {
+        if (invMass != 0f) {
+            originalBody.getLinearVelocity(linearVelocity);
+            originalBody.getAngularVelocity(angularVelocity);
+        }
+    }
+
 }

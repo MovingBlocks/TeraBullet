@@ -32,32 +32,31 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 
 /**
- *
  * @author jezek2
  */
 public abstract class BspConverter {
 
-	public void convertBsp(InputStream in) throws IOException {
-		BufferedReader r = new BufferedReader(new InputStreamReader(in, "UTF-8"));
-		String s;
-		
-		ObjectArrayList<Vector3f> vertices = new ObjectArrayList<Vector3f>();
-		while ((s = r.readLine()) != null) {
-			int count = Integer.parseInt(s);
-			vertices.clear();
-			for (int i=0; i<count; i++) {
-				String[] c = r.readLine().split(" ");
-				vertices.add(new Vector3f(
-					Float.parseFloat(c[0]),
-					Float.parseFloat(c[1]),
-					Float.parseFloat(c[2])
-				));
-			}
-			addConvexVerticesCollider(vertices);
-		}
-		r.close();
-	}
-	
-	public abstract void addConvexVerticesCollider(ObjectArrayList<Vector3f> vertices);
-	
+    public void convertBsp(InputStream in) throws IOException {
+        BufferedReader r = new BufferedReader(new InputStreamReader(in, "UTF-8"));
+        String s;
+
+        ObjectArrayList<Vector3f> vertices = new ObjectArrayList<Vector3f>();
+        while ((s = r.readLine()) != null) {
+            int count = Integer.parseInt(s);
+            vertices.clear();
+            for (int i = 0; i < count; i++) {
+                String[] c = r.readLine().split(" ");
+                vertices.add(new Vector3f(
+                        Float.parseFloat(c[0]),
+                        Float.parseFloat(c[1]),
+                        Float.parseFloat(c[2])
+                ));
+            }
+            addConvexVerticesCollider(vertices);
+        }
+        r.close();
+    }
+
+    public abstract void addConvexVerticesCollider(ObjectArrayList<Vector3f> vertices);
+
 }

@@ -37,123 +37,123 @@ import javax.vecmath.Vector3f;
 /**
  * DynamicsWorld is the interface class for several dynamics implementation,
  * basic, discrete, parallel, and continuous etc.
- * 
+ *
  * @author jezek2
  */
 public abstract class DynamicsWorld extends CollisionWorld {
 
-	protected InternalTickCallback internalTickCallback;
-	protected Object worldUserInfo;
-	
-	protected final ContactSolverInfo solverInfo = new ContactSolverInfo();
-	
-	public DynamicsWorld(Dispatcher dispatcher, BroadphaseInterface broadphasePairCache, CollisionConfiguration collisionConfiguration) {
-		super(dispatcher, broadphasePairCache, collisionConfiguration);
-	}
+    protected InternalTickCallback internalTickCallback;
+    protected Object worldUserInfo;
 
-	public final int stepSimulation(float timeStep) {
-		return stepSimulation(timeStep, 1, 1f / 60f);
-	}
+    protected final ContactSolverInfo solverInfo = new ContactSolverInfo();
 
-	public final int stepSimulation(float timeStep, int maxSubSteps) {
-		return stepSimulation(timeStep, maxSubSteps, 1f / 60f);
-	}
+    public DynamicsWorld(Dispatcher dispatcher, BroadphaseInterface broadphasePairCache, CollisionConfiguration collisionConfiguration) {
+        super(dispatcher, broadphasePairCache, collisionConfiguration);
+    }
 
-	/**
-	 * Proceeds the simulation over 'timeStep', units in preferably in seconds.<p>
-	 *
-	 * By default, Bullet will subdivide the timestep in constant substeps of each
-	 * 'fixedTimeStep'.<p>
-	 *
-	 * In order to keep the simulation real-time, the maximum number of substeps can
-	 * be clamped to 'maxSubSteps'.<p>
-	 * 
-	 * You can disable subdividing the timestep/substepping by passing maxSubSteps=0
-	 * as second argument to stepSimulation, but in that case you have to keep the
-	 * timeStep constant.
-	 */
-	public abstract int stepSimulation(float timeStep, int maxSubSteps, float fixedTimeStep);
+    public final int stepSimulation(float timeStep) {
+        return stepSimulation(timeStep, 1, 1f / 60f);
+    }
 
-	public abstract void debugDrawWorld();
+    public final int stepSimulation(float timeStep, int maxSubSteps) {
+        return stepSimulation(timeStep, maxSubSteps, 1f / 60f);
+    }
 
-	public final void addConstraint(TypedConstraint constraint) {
-		addConstraint(constraint, false);
-	}
-	
-	public void addConstraint(TypedConstraint constraint, boolean disableCollisionsBetweenLinkedBodies) {
-	}
+    /**
+     * Proceeds the simulation over 'timeStep', units in preferably in seconds.<p>
+     * <p/>
+     * By default, Bullet will subdivide the timestep in constant substeps of each
+     * 'fixedTimeStep'.<p>
+     * <p/>
+     * In order to keep the simulation real-time, the maximum number of substeps can
+     * be clamped to 'maxSubSteps'.<p>
+     * <p/>
+     * You can disable subdividing the timestep/substepping by passing maxSubSteps=0
+     * as second argument to stepSimulation, but in that case you have to keep the
+     * timeStep constant.
+     */
+    public abstract int stepSimulation(float timeStep, int maxSubSteps, float fixedTimeStep);
 
-	public void removeConstraint(TypedConstraint constraint) {
-	}
+    public abstract void debugDrawWorld();
 
-	public void addAction(ActionInterface action) {
-	}
+    public final void addConstraint(TypedConstraint constraint) {
+        addConstraint(constraint, false);
+    }
 
-	public void removeAction(ActionInterface action) {
-	}
+    public void addConstraint(TypedConstraint constraint, boolean disableCollisionsBetweenLinkedBodies) {
+    }
 
-	public void addVehicle(RaycastVehicle vehicle) {
-	}
+    public void removeConstraint(TypedConstraint constraint) {
+    }
 
-	public void removeVehicle(RaycastVehicle vehicle) {
-	}
+    public void addAction(ActionInterface action) {
+    }
 
-	/**
-	 * Once a rigidbody is added to the dynamics world, it will get this gravity assigned.
-	 * Existing rigidbodies in the world get gravity assigned too, during this method.
-	 */
-	public abstract void setGravity(Vector3f gravity);
-	
-	public abstract Vector3f getGravity(Vector3f out);
+    public void removeAction(ActionInterface action) {
+    }
 
-	public abstract void addRigidBody(RigidBody body);
+    public void addVehicle(RaycastVehicle vehicle) {
+    }
 
-	public abstract void removeRigidBody(RigidBody body);
+    public void removeVehicle(RaycastVehicle vehicle) {
+    }
 
-	public abstract void setConstraintSolver(ConstraintSolver solver);
+    /**
+     * Once a rigidbody is added to the dynamics world, it will get this gravity assigned.
+     * Existing rigidbodies in the world get gravity assigned too, during this method.
+     */
+    public abstract void setGravity(Vector3f gravity);
 
-	public abstract ConstraintSolver getConstraintSolver();
+    public abstract Vector3f getGravity(Vector3f out);
 
-	public int getNumConstraints() {
-		return 0;
-	}
+    public abstract void addRigidBody(RigidBody body);
 
-	public TypedConstraint getConstraint(int index) {
-		return null;
-	}
+    public abstract void removeRigidBody(RigidBody body);
 
-	// JAVA NOTE: not part of the original api
-	public int getNumActions() {
-		return 0;
-	}
+    public abstract void setConstraintSolver(ConstraintSolver solver);
 
-	// JAVA NOTE: not part of the original api
-	public ActionInterface getAction(int index) {
-		return null;
-	}
+    public abstract ConstraintSolver getConstraintSolver();
 
-	public abstract DynamicsWorldType getWorldType();
+    public int getNumConstraints() {
+        return 0;
+    }
 
-	public abstract void clearForces();
-	
-	/**
-	 * Set the callback for when an internal tick (simulation substep) happens, optional user info.
-	 */
-	public void setInternalTickCallback(InternalTickCallback cb, Object worldUserInfo) {
-		this.internalTickCallback = cb;
-		this.worldUserInfo = worldUserInfo;
-	}
+    public TypedConstraint getConstraint(int index) {
+        return null;
+    }
 
-	public void setWorldUserInfo(Object worldUserInfo) {
-		this.worldUserInfo = worldUserInfo;
-	}
+    // JAVA NOTE: not part of the original api
+    public int getNumActions() {
+        return 0;
+    }
 
-	public Object getWorldUserInfo() {
-		return worldUserInfo;
-	}
+    // JAVA NOTE: not part of the original api
+    public ActionInterface getAction(int index) {
+        return null;
+    }
 
-	public ContactSolverInfo getSolverInfo() {
-		return solverInfo;
-	}
-	
+    public abstract DynamicsWorldType getWorldType();
+
+    public abstract void clearForces();
+
+    /**
+     * Set the callback for when an internal tick (simulation substep) happens, optional user info.
+     */
+    public void setInternalTickCallback(InternalTickCallback cb, Object worldUserInfo) {
+        this.internalTickCallback = cb;
+        this.worldUserInfo = worldUserInfo;
+    }
+
+    public void setWorldUserInfo(Object worldUserInfo) {
+        this.worldUserInfo = worldUserInfo;
+    }
+
+    public Object getWorldUserInfo() {
+        return worldUserInfo;
+    }
+
+    public ContactSolverInfo getSolverInfo() {
+        return solverInfo;
+    }
+
 }

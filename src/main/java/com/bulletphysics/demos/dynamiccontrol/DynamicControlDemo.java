@@ -46,199 +46,200 @@ import org.lwjgl.LWJGLException;
 
 import javax.vecmath.Vector3f;
 
-import static com.bulletphysics.demos.opengl.IGL.*;
+import static com.bulletphysics.demos.opengl.IGL.GL_COLOR_BUFFER_BIT;
+import static com.bulletphysics.demos.opengl.IGL.GL_DEPTH_BUFFER_BIT;
+import static com.bulletphysics.demos.opengl.IGL.GL_LINES;
 
 /**
- *
  * @author LvR
  */
 public class DynamicControlDemo extends DemoApplication {
-	
-	private	float time;
-	private float cyclePeriod; // in milliseconds
-	private float muscleStrength;
-	
-	private ObjectArrayList<TestRig> rigs = new ObjectArrayList<TestRig>();
-	
-	public DynamicControlDemo(IGL gl) {
-		super(gl);
-	}
 
-	public void initPhysics() {
-		// Setup the basic world
-		time = 0.0f;
-		cyclePeriod = 2000.0f; // in milliseconds
-		muscleStrength = 0.05f;
+    private float time;
+    private float cyclePeriod; // in milliseconds
+    private float muscleStrength;
 
-		setCameraDistance(5.0f);
-		
-		DefaultCollisionConfiguration collision_config = new DefaultCollisionConfiguration();
+    private ObjectArrayList<TestRig> rigs = new ObjectArrayList<TestRig>();
 
-		CollisionDispatcher dispatcher = new CollisionDispatcher(collision_config);
+    public DynamicControlDemo(IGL gl) {
+        super(gl);
+    }
 
-		Vector3f worldAabbMin = new Vector3f(-10000,-10000,-10000);
-		Vector3f worldAabbMax = new Vector3f(10000,10000,10000);
-		//BroadphaseInterface overlappingPairCache = new AxisSweep3(worldAabbMin, worldAabbMax);
-		//BroadphaseInterface overlappingPairCache = new SimpleBroadphase();
-		BroadphaseInterface overlappingPairCache = new DbvtBroadphase();
+    public void initPhysics() {
+        // Setup the basic world
+        time = 0.0f;
+        cyclePeriod = 2000.0f; // in milliseconds
+        muscleStrength = 0.05f;
 
-		ConstraintSolver constraintSolver = new SequentialImpulseConstraintSolver();
+        setCameraDistance(5.0f);
 
-		dynamicsWorld = new DiscreteDynamicsWorld(dispatcher, overlappingPairCache, constraintSolver, collision_config);
+        DefaultCollisionConfiguration collision_config = new DefaultCollisionConfiguration();
 
-		// Setup a big ground box
-		{
-			CollisionShape groundShape = new BoxShape(new Vector3f(200f, 10f, 200f));
-			// TODO
-			//m_collisionShapes.push_back(groundShape);
-			Transform groundTransform = new Transform();
-			groundTransform.setIdentity();
-			groundTransform.origin.set(0f, -10f, 0f);
-			localCreateRigidBody(0f, groundTransform, groundShape);
-		}
+        CollisionDispatcher dispatcher = new CollisionDispatcher(collision_config);
 
-		// Spawn one TestRig
-		Vector3f startOffset = new Vector3f(1.0f, 0.5f, 0.0f);
-		spawnTestRig(startOffset, false);
-		startOffset.set(-2.0f, 0.5f, 0.0f);
-		spawnTestRig(startOffset, true);
+        Vector3f worldAabbMin = new Vector3f(-10000, -10000, -10000);
+        Vector3f worldAabbMax = new Vector3f(10000, 10000, 10000);
+        //BroadphaseInterface overlappingPairCache = new AxisSweep3(worldAabbMin, worldAabbMax);
+        //BroadphaseInterface overlappingPairCache = new SimpleBroadphase();
+        BroadphaseInterface overlappingPairCache = new DbvtBroadphase();
 
-		clientResetScene();
-	}
+        ConstraintSolver constraintSolver = new SequentialImpulseConstraintSolver();
 
-	public void spawnTestRig(Vector3f startOffset, boolean fixed) {
-		TestRig rig = new TestRig(dynamicsWorld, startOffset, fixed);
-		rigs.add(rig);
-	}
-	
-	@Override
-	public void clientMoveAndDisplay() {
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        dynamicsWorld = new DiscreteDynamicsWorld(dispatcher, overlappingPairCache, constraintSolver, collision_config);
 
-		// simple dynamics world doesn't handle fixed-time-stepping
-		float ms = getDeltaTimeMicroseconds();
-		float minFPS = 1000000f / 60f;
-		if (ms > minFPS) {
-			ms = minFPS;
-		}
+        // Setup a big ground box
+        {
+            CollisionShape groundShape = new BoxShape(new Vector3f(200f, 10f, 200f));
+            // TODO
+            //m_collisionShapes.push_back(groundShape);
+            Transform groundTransform = new Transform();
+            groundTransform.setIdentity();
+            groundTransform.origin.set(0f, -10f, 0f);
+            localCreateRigidBody(0f, groundTransform, groundShape);
+        }
 
-		time+=ms;
-		
-		//
-		// set per-frame sinusoidal position targets using angular motor (hacky?)
-		//
-		for (int r=0; r<rigs.size(); r++) {
-			for (int i=0; i<2*TestRig.NUM_LEGS; i++) {
-				HingeConstraint hingeC = (HingeConstraint)(rigs.getQuick(r).getJoints()[i]);
-				float curAngle = hingeC.getHingeAngle();
+        // Spawn one TestRig
+        Vector3f startOffset = new Vector3f(1.0f, 0.5f, 0.0f);
+        spawnTestRig(startOffset, false);
+        startOffset.set(-2.0f, 0.5f, 0.0f);
+        spawnTestRig(startOffset, true);
 
-				float targetPercent = ((int)(time / 1000) % (int)(cyclePeriod)) / cyclePeriod;
-				float targetAngle = 0.5f * (1.0f + (float)Math.sin(BulletGlobals.SIMD_2_PI * targetPercent));
-				float targetLimitAngle = hingeC.getLowerLimit() + targetAngle * (hingeC.getUpperLimit() - hingeC.getLowerLimit());
-				float angleError = targetLimitAngle - curAngle;
-				float desiredAngularVel = 1000000.f * angleError/ms;
-				hingeC.enableAngularMotor(true, desiredAngularVel, muscleStrength);
-			}
-		}
-		
-		if (dynamicsWorld != null) {
-			dynamicsWorld.stepSimulation(ms / 1000000.f);
-			// optional but useful: debug drawing
-			dynamicsWorld.debugDrawWorld();
-		}
+        clientResetScene();
+    }
 
-		for (int i=2; i>=0; i--) {
-			CollisionObject obj = dynamicsWorld.getCollisionObjectArray().getQuick(i);
-			RigidBody body = RigidBody.upcast(obj);
-			drawFrame(body.getWorldTransform(new Transform()));
-		}
-		
-		renderme();
+    public void spawnTestRig(Vector3f startOffset, boolean fixed) {
+        TestRig rig = new TestRig(dynamicsWorld, startOffset, fixed);
+        rigs.add(rig);
+    }
 
-		//glFlush();
-		//glutSwapBuffers();
-	}
+    @Override
+    public void clientMoveAndDisplay() {
+        gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	@Override
-	public void displayCallback() {
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // simple dynamics world doesn't handle fixed-time-stepping
+        float ms = getDeltaTimeMicroseconds();
+        float minFPS = 1000000f / 60f;
+        if (ms > minFPS) {
+            ms = minFPS;
+        }
 
-		if (dynamicsWorld != null) {
-			dynamicsWorld.debugDrawWorld();
-		}
+        time += ms;
 
-		renderme();
+        //
+        // set per-frame sinusoidal position targets using angular motor (hacky?)
+        //
+        for (int r = 0; r < rigs.size(); r++) {
+            for (int i = 0; i < 2 * TestRig.NUM_LEGS; i++) {
+                HingeConstraint hingeC = (HingeConstraint) (rigs.getQuick(r).getJoints()[i]);
+                float curAngle = hingeC.getHingeAngle();
 
-		//glFlush();
-		//glutSwapBuffers();
-	}
+                float targetPercent = ((int) (time / 1000) % (int) (cyclePeriod)) / cyclePeriod;
+                float targetAngle = 0.5f * (1.0f + (float) Math.sin(BulletGlobals.SIMD_2_PI * targetPercent));
+                float targetLimitAngle = hingeC.getLowerLimit() + targetAngle * (hingeC.getUpperLimit() - hingeC.getLowerLimit());
+                float angleError = targetLimitAngle - curAngle;
+                float desiredAngularVel = 1000000.f * angleError / ms;
+                hingeC.enableAngularMotor(true, desiredAngularVel, muscleStrength);
+            }
+        }
 
-	@Override
-	public void keyboardCallback(char key, int x, int y, int modifiers) {
-		switch (key) {
-			case '+':
-			case '=':
-				cyclePeriod /= 1.1f;
-				if (cyclePeriod < 1.f) {
-					cyclePeriod = 1.f;
-				}
-				break;
-			case '-':
-			case '_':
-				cyclePeriod *= 1.1f;
-				break;
-			case '[':
-				muscleStrength /= 1.1f;
-				break;
-			case ']':
-				muscleStrength *= 1.1f;
-				break;
-			default:
-				super.keyboardCallback(key, x, y, modifiers);
-		}
-	}
+        if (dynamicsWorld != null) {
+            dynamicsWorld.stepSimulation(ms / 1000000.f);
+            // optional but useful: debug drawing
+            dynamicsWorld.debugDrawWorld();
+        }
 
-	private void vertex(Vector3f v) {
-		gl.glVertex3f(v.x, v.y, v.z);
-	}
+        for (int i = 2; i >= 0; i--) {
+            CollisionObject obj = dynamicsWorld.getCollisionObjectArray().getQuick(i);
+            RigidBody body = RigidBody.upcast(obj);
+            drawFrame(body.getWorldTransform(new Transform()));
+        }
 
-	private void drawFrame(Transform tr) {
-		final float size = 1.0f;
-		
-		gl.glBegin(GL_LINES);
+        renderme();
 
-		// x
-		gl.glColor3f(255.f,0,0);
-		Vector3f vX = new Vector3f();
-		vX.set(size,0,0);
-		tr.transform(vX);
-		vertex(tr.origin);
-		vertex(vX);
+        //glFlush();
+        //glutSwapBuffers();
+    }
 
-		// y
-		gl.glColor3f(0,255.f,0);
-		Vector3f vY = new Vector3f();
-		vY.set(0,size,0);
-		tr.transform(vY);
-		vertex(tr.origin);
-		vertex(vY);
+    @Override
+    public void displayCallback() {
+        gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		// z
-		gl.glColor3f(0,0,255.f);
-		Vector3f vZ = new Vector3f();
-		vZ.set(0,0,size);
-		tr.transform(vZ);
-		vertex(tr.origin);
-		vertex(vZ);
+        if (dynamicsWorld != null) {
+            dynamicsWorld.debugDrawWorld();
+        }
 
-		gl.glEnd();
-	}
+        renderme();
 
-	public static void main(String[] args) throws LWJGLException {
-		DynamicControlDemo demoApp = new DynamicControlDemo(LWJGL.getGL());
-		demoApp.initPhysics();
+        //glFlush();
+        //glutSwapBuffers();
+    }
 
-		LWJGL.main(args, 800, 600, "Bullet Physics Demo. http://bullet.sf.net", demoApp);
-	}
-	
+    @Override
+    public void keyboardCallback(char key, int x, int y, int modifiers) {
+        switch (key) {
+            case '+':
+            case '=':
+                cyclePeriod /= 1.1f;
+                if (cyclePeriod < 1.f) {
+                    cyclePeriod = 1.f;
+                }
+                break;
+            case '-':
+            case '_':
+                cyclePeriod *= 1.1f;
+                break;
+            case '[':
+                muscleStrength /= 1.1f;
+                break;
+            case ']':
+                muscleStrength *= 1.1f;
+                break;
+            default:
+                super.keyboardCallback(key, x, y, modifiers);
+        }
+    }
+
+    private void vertex(Vector3f v) {
+        gl.glVertex3f(v.x, v.y, v.z);
+    }
+
+    private void drawFrame(Transform tr) {
+        final float size = 1.0f;
+
+        gl.glBegin(GL_LINES);
+
+        // x
+        gl.glColor3f(255.f, 0, 0);
+        Vector3f vX = new Vector3f();
+        vX.set(size, 0, 0);
+        tr.transform(vX);
+        vertex(tr.origin);
+        vertex(vX);
+
+        // y
+        gl.glColor3f(0, 255.f, 0);
+        Vector3f vY = new Vector3f();
+        vY.set(0, size, 0);
+        tr.transform(vY);
+        vertex(tr.origin);
+        vertex(vY);
+
+        // z
+        gl.glColor3f(0, 0, 255.f);
+        Vector3f vZ = new Vector3f();
+        vZ.set(0, 0, size);
+        tr.transform(vZ);
+        vertex(tr.origin);
+        vertex(vZ);
+
+        gl.glEnd();
+    }
+
+    public static void main(String[] args) throws LWJGLException {
+        DynamicControlDemo demoApp = new DynamicControlDemo(LWJGL.getGL());
+        demoApp.initPhysics();
+
+        LWJGL.main(args, 800, 600, "Bullet Physics Demo. http://bullet.sf.net", demoApp);
+    }
+
 }

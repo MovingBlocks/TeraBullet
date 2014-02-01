@@ -23,15 +23,14 @@ package com.bulletphysics.demos.applet;
 import javax.vecmath.Vector4f;
 
 /**
- *
  * @author jezek2
  */
 public class Light {
 
-	public boolean enabled = false;
-	public final Vector4f ambient = new Vector4f(0f, 0f, 0f, 1f);
-	public final Vector4f diffuse = new Vector4f(1f, 1f, 1f, 1f);
-	public final Vector4f specular = new Vector4f(1f, 1f, 1f, 1f);
-	public final Vector4f position = new Vector4f(0f, 0f, 1f, 0f);
-	
+    public boolean enabled = false;
+    public final Vector4f ambient = new Vector4f(0f, 0f, 0f, 1f);
+    public final Vector4f diffuse = new Vector4f(1f, 1f, 1f, 1f);
+    public final Vector4f specular = new Vector4f(1f, 1f, 1f, 1f);
+    public final Vector4f position = new Vector4f(0f, 0f, 1f, 0f);
+
 }

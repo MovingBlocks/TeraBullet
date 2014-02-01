@@ -29,65 +29,67 @@ import javax.vecmath.Vector3f;
  * Stores some extra information to each contact point. It is not in the contact
  * point, because that want to keep the collision detection independent from the
  * constraint solver.
- * 
+ *
  * @author jezek2
  */
 public class ConstraintPersistentData {
-	
-	/** total applied impulse during most recent frame */
-	public float appliedImpulse = 0f;
-	public float prevAppliedImpulse = 0f;
-	public float accumulatedTangentImpulse0 = 0f;
-	public float accumulatedTangentImpulse1 = 0f;
 
-	public float jacDiagABInv = 0f;
-	public float jacDiagABInvTangent0;
-	public float jacDiagABInvTangent1;
-	public int persistentLifeTime = 0;
-	public float restitution = 0f;
-	public float friction = 0f;
-	public float penetration = 0f;
-	public final Vector3f frictionWorldTangential0 = new Vector3f();
-	public final Vector3f frictionWorldTangential1 = new Vector3f();
+    /**
+     * total applied impulse during most recent frame
+     */
+    public float appliedImpulse = 0f;
+    public float prevAppliedImpulse = 0f;
+    public float accumulatedTangentImpulse0 = 0f;
+    public float accumulatedTangentImpulse1 = 0f;
 
-	public final Vector3f frictionAngularComponent0A = new Vector3f();
-	public final Vector3f frictionAngularComponent0B = new Vector3f();
-	public final Vector3f frictionAngularComponent1A = new Vector3f();
-	public final Vector3f frictionAngularComponent1B = new Vector3f();
+    public float jacDiagABInv = 0f;
+    public float jacDiagABInvTangent0;
+    public float jacDiagABInvTangent1;
+    public int persistentLifeTime = 0;
+    public float restitution = 0f;
+    public float friction = 0f;
+    public float penetration = 0f;
+    public final Vector3f frictionWorldTangential0 = new Vector3f();
+    public final Vector3f frictionWorldTangential1 = new Vector3f();
 
-	//some data doesn't need to be persistent over frames: todo: clean/reuse this
-	public final Vector3f angularComponentA = new Vector3f();
-	public final Vector3f angularComponentB = new Vector3f();
+    public final Vector3f frictionAngularComponent0A = new Vector3f();
+    public final Vector3f frictionAngularComponent0B = new Vector3f();
+    public final Vector3f frictionAngularComponent1A = new Vector3f();
+    public final Vector3f frictionAngularComponent1B = new Vector3f();
 
-	public ContactSolverFunc contactSolverFunc = null;
-	public ContactSolverFunc frictionSolverFunc = null;
-	
-	public void reset() {
-		appliedImpulse = 0f;
-		prevAppliedImpulse = 0f;
-		accumulatedTangentImpulse0 = 0f;
-		accumulatedTangentImpulse1 = 0f;
+    //some data doesn't need to be persistent over frames: todo: clean/reuse this
+    public final Vector3f angularComponentA = new Vector3f();
+    public final Vector3f angularComponentB = new Vector3f();
 
-		jacDiagABInv = 0f;
-		jacDiagABInvTangent0 = 0f;
-		jacDiagABInvTangent1 = 0f;
-		persistentLifeTime = 0;
-		restitution = 0f;
-		friction = 0f;
-		penetration = 0f;
-		frictionWorldTangential0.set(0f, 0f, 0f);
-		frictionWorldTangential1.set(0f, 0f, 0f);
+    public ContactSolverFunc contactSolverFunc = null;
+    public ContactSolverFunc frictionSolverFunc = null;
 
-		frictionAngularComponent0A.set(0f, 0f, 0f);
-		frictionAngularComponent0B.set(0f, 0f, 0f);
-		frictionAngularComponent1A.set(0f, 0f, 0f);
-		frictionAngularComponent1B.set(0f, 0f, 0f);
+    public void reset() {
+        appliedImpulse = 0f;
+        prevAppliedImpulse = 0f;
+        accumulatedTangentImpulse0 = 0f;
+        accumulatedTangentImpulse1 = 0f;
 
-		angularComponentA.set(0f, 0f, 0f);
-		angularComponentB.set(0f, 0f, 0f);
+        jacDiagABInv = 0f;
+        jacDiagABInvTangent0 = 0f;
+        jacDiagABInvTangent1 = 0f;
+        persistentLifeTime = 0;
+        restitution = 0f;
+        friction = 0f;
+        penetration = 0f;
+        frictionWorldTangential0.set(0f, 0f, 0f);
+        frictionWorldTangential1.set(0f, 0f, 0f);
 
-		contactSolverFunc = null;
-		frictionSolverFunc = null;
-	}
-	
+        frictionAngularComponent0A.set(0f, 0f, 0f);
+        frictionAngularComponent0B.set(0f, 0f, 0f);
+        frictionAngularComponent1A.set(0f, 0f, 0f);
+        frictionAngularComponent1B.set(0f, 0f, 0f);
+
+        angularComponentA.set(0f, 0f, 0f);
+        angularComponentB.set(0f, 0f, 0f);
+
+        contactSolverFunc = null;
+        frictionSolverFunc = null;
+    }
+
 }

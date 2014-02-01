@@ -25,15 +25,15 @@ package com.bulletphysics.dynamics.vehicle;
 
 /**
  * Vehicle tuning parameters.
- * 
+ *
  * @author jezek2
  */
 public class VehicleTuning {
 
-	public float suspensionStiffness = 5.88f;
-	public float suspensionCompression = 0.83f;
-	public float suspensionDamping = 0.88f;
-	public float maxSuspensionTravelCm = 500f;
-	public float frictionSlip = 10.5f;
-	
+    public float suspensionStiffness = 5.88f;
+    public float suspensionCompression = 0.83f;
+    public float suspensionDamping = 0.88f;
+    public float maxSuspensionTravelCm = 500f;
+    public float frictionSlip = 10.5f;
+
 }

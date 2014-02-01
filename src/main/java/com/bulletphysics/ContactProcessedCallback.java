@@ -27,12 +27,12 @@ import com.bulletphysics.collision.narrowphase.ManifoldPoint;
 
 /**
  * Called when existing contact between two collision objects has been processed.
- * 
- * @see BulletGlobals#setContactProcessedCallback
+ *
  * @author jezek2
+ * @see BulletGlobals#setContactProcessedCallback
  */
 public abstract class ContactProcessedCallback {
-	
-	public abstract boolean contactProcessed(ManifoldPoint cp, Object body0, Object body1);
+
+    public abstract boolean contactProcessed(ManifoldPoint cp, Object body0, Object body1);
 
 }

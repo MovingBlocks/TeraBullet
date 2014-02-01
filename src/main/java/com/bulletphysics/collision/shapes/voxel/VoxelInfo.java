@@ -19,10 +19,10 @@ package com.bulletphysics.collision.shapes.voxel;
 import com.bulletphysics.collision.shapes.CollisionShape;
 
 import javax.vecmath.Vector3f;
-import java.util.EnumSet;
 
 /**
  * The collision data for a single Voxel.
+ *
  * @author Immortius
  */
 public interface VoxelInfo {

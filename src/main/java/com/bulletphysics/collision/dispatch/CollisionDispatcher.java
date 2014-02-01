@@ -23,7 +23,14 @@
 
 package com.bulletphysics.collision.dispatch;
 
-import com.bulletphysics.collision.broadphase.*;
+import com.bulletphysics.collision.broadphase.BroadphaseNativeType;
+import com.bulletphysics.collision.broadphase.BroadphasePair;
+import com.bulletphysics.collision.broadphase.CollisionAlgorithm;
+import com.bulletphysics.collision.broadphase.CollisionAlgorithmConstructionInfo;
+import com.bulletphysics.collision.broadphase.Dispatcher;
+import com.bulletphysics.collision.broadphase.DispatcherInfo;
+import com.bulletphysics.collision.broadphase.OverlapCallback;
+import com.bulletphysics.collision.broadphase.OverlappingPairCache;
 import com.bulletphysics.collision.narrowphase.PersistentManifold;
 import com.bulletphysics.util.ObjectArrayList;
 import com.bulletphysics.util.ObjectPool;
@@ -33,98 +40,98 @@ import java.util.Collections;
 /**
  * CollisionDispatcher supports algorithms that handle ConvexConvex and ConvexConcave collision pairs.
  * Time of Impact, Closest Points and Penetration Depth.
- * 
+ *
  * @author jezek2
  */
 public class CollisionDispatcher extends Dispatcher {
-	
-	protected final ObjectPool<PersistentManifold> manifoldsPool = ObjectPool.get(PersistentManifold.class);
 
-	private static final int MAX_BROADPHASE_COLLISION_TYPES = BroadphaseNativeType.MAX_BROADPHASE_COLLISION_TYPES.ordinal();
-	private int count = 0;
-	private final ObjectArrayList<PersistentManifold> manifoldsPtr = new ObjectArrayList<PersistentManifold>();
-	private boolean useIslands = true;
-	private boolean staticWarningReported = false;
-	private ManifoldResult defaultManifoldResult;
-	private NearCallback nearCallback;
-	//private PoolAllocator*	m_collisionAlgorithmPoolAllocator;
-	//private PoolAllocator*	m_persistentManifoldPoolAllocator;
-	private final CollisionAlgorithmCreateFunc[][] doubleDispatch = new CollisionAlgorithmCreateFunc[MAX_BROADPHASE_COLLISION_TYPES][MAX_BROADPHASE_COLLISION_TYPES];
-	private CollisionConfiguration collisionConfiguration;
-	//private static int gNumManifold = 0;
-	
-	private CollisionAlgorithmConstructionInfo tmpCI = new CollisionAlgorithmConstructionInfo();
+    protected final ObjectPool<PersistentManifold> manifoldsPool = ObjectPool.get(PersistentManifold.class);
 
-	public CollisionDispatcher(CollisionConfiguration collisionConfiguration) {
-		this.collisionConfiguration = collisionConfiguration;
+    private static final int MAX_BROADPHASE_COLLISION_TYPES = BroadphaseNativeType.MAX_BROADPHASE_COLLISION_TYPES.ordinal();
+    private int count = 0;
+    private final ObjectArrayList<PersistentManifold> manifoldsPtr = new ObjectArrayList<PersistentManifold>();
+    private boolean useIslands = true;
+    private boolean staticWarningReported = false;
+    private ManifoldResult defaultManifoldResult;
+    private NearCallback nearCallback;
+    //private PoolAllocator*	m_collisionAlgorithmPoolAllocator;
+    //private PoolAllocator*	m_persistentManifoldPoolAllocator;
+    private final CollisionAlgorithmCreateFunc[][] doubleDispatch = new CollisionAlgorithmCreateFunc[MAX_BROADPHASE_COLLISION_TYPES][MAX_BROADPHASE_COLLISION_TYPES];
+    private CollisionConfiguration collisionConfiguration;
+    //private static int gNumManifold = 0;
 
-		setNearCallback(new DefaultNearCallback());
+    private CollisionAlgorithmConstructionInfo tmpCI = new CollisionAlgorithmConstructionInfo();
 
-		//m_collisionAlgorithmPoolAllocator = collisionConfiguration->getCollisionAlgorithmPool();
-		//m_persistentManifoldPoolAllocator = collisionConfiguration->getPersistentManifoldPool();
+    public CollisionDispatcher(CollisionConfiguration collisionConfiguration) {
+        this.collisionConfiguration = collisionConfiguration;
 
-		for (int i = 0; i < MAX_BROADPHASE_COLLISION_TYPES; i++) {
-			for (int j = 0; j < MAX_BROADPHASE_COLLISION_TYPES; j++) {
-				doubleDispatch[i][j] = collisionConfiguration.getCollisionAlgorithmCreateFunc(
-					BroadphaseNativeType.forValue(i),
-					BroadphaseNativeType.forValue(j)
-				);
-				assert (doubleDispatch[i][j] != null);
-			}
-		}
-	}
+        setNearCallback(new DefaultNearCallback());
 
-	public void registerCollisionCreateFunc(int proxyType0, int proxyType1, CollisionAlgorithmCreateFunc createFunc) {
-		doubleDispatch[proxyType0][proxyType1] = createFunc;
-	}
+        //m_collisionAlgorithmPoolAllocator = collisionConfiguration->getCollisionAlgorithmPool();
+        //m_persistentManifoldPoolAllocator = collisionConfiguration->getPersistentManifoldPool();
 
-	public NearCallback getNearCallback() {
-		return nearCallback;
-	}
+        for (int i = 0; i < MAX_BROADPHASE_COLLISION_TYPES; i++) {
+            for (int j = 0; j < MAX_BROADPHASE_COLLISION_TYPES; j++) {
+                doubleDispatch[i][j] = collisionConfiguration.getCollisionAlgorithmCreateFunc(
+                        BroadphaseNativeType.forValue(i),
+                        BroadphaseNativeType.forValue(j)
+                );
+                assert (doubleDispatch[i][j] != null);
+            }
+        }
+    }
 
-	public void setNearCallback(NearCallback nearCallback) {
-		this.nearCallback = nearCallback;
-	}
+    public void registerCollisionCreateFunc(int proxyType0, int proxyType1, CollisionAlgorithmCreateFunc createFunc) {
+        doubleDispatch[proxyType0][proxyType1] = createFunc;
+    }
 
-	public CollisionConfiguration getCollisionConfiguration() {
-		return collisionConfiguration;
-	}
+    public NearCallback getNearCallback() {
+        return nearCallback;
+    }
 
-	public void setCollisionConfiguration(CollisionConfiguration collisionConfiguration) {
-		this.collisionConfiguration = collisionConfiguration;
-	}
+    public void setNearCallback(NearCallback nearCallback) {
+        this.nearCallback = nearCallback;
+    }
 
-	@Override
-	public CollisionAlgorithm findAlgorithm(CollisionObject body0, CollisionObject body1, PersistentManifold sharedManifold) {
-		CollisionAlgorithmConstructionInfo ci = tmpCI;
-		ci.dispatcher1 = this;
-		ci.manifold = sharedManifold;
-		CollisionAlgorithmCreateFunc createFunc = doubleDispatch[body0.getCollisionShape().getShapeType().ordinal()][body1.getCollisionShape().getShapeType().ordinal()];
-		CollisionAlgorithm algo = createFunc.createCollisionAlgorithm(ci, body0, body1);
-		algo.internalSetCreateFunc(createFunc);
+    public CollisionConfiguration getCollisionConfiguration() {
+        return collisionConfiguration;
+    }
 
-		return algo;
-	}
+    public void setCollisionConfiguration(CollisionConfiguration collisionConfiguration) {
+        this.collisionConfiguration = collisionConfiguration;
+    }
 
-	@Override
-	public void freeCollisionAlgorithm(CollisionAlgorithm algo) {
-		CollisionAlgorithmCreateFunc createFunc = algo.internalGetCreateFunc();
-		algo.internalSetCreateFunc(null);
-		createFunc.releaseCollisionAlgorithm(algo);
-		algo.destroy();
-	}
+    @Override
+    public CollisionAlgorithm findAlgorithm(CollisionObject body0, CollisionObject body1, PersistentManifold sharedManifold) {
+        CollisionAlgorithmConstructionInfo ci = tmpCI;
+        ci.dispatcher1 = this;
+        ci.manifold = sharedManifold;
+        CollisionAlgorithmCreateFunc createFunc = doubleDispatch[body0.getCollisionShape().getShapeType().ordinal()][body1.getCollisionShape().getShapeType().ordinal()];
+        CollisionAlgorithm algo = createFunc.createCollisionAlgorithm(ci, body0, body1);
+        algo.internalSetCreateFunc(createFunc);
 
-	@Override
-	public PersistentManifold getNewManifold(Object b0, Object b1) {
-		//gNumManifold++;
+        return algo;
+    }
 
-		//btAssert(gNumManifold < 65535);
+    @Override
+    public void freeCollisionAlgorithm(CollisionAlgorithm algo) {
+        CollisionAlgorithmCreateFunc createFunc = algo.internalGetCreateFunc();
+        algo.internalSetCreateFunc(null);
+        createFunc.releaseCollisionAlgorithm(algo);
+        algo.destroy();
+    }
 
-		CollisionObject body0 = (CollisionObject)b0;
-		CollisionObject body1 = (CollisionObject)b1;
+    @Override
+    public PersistentManifold getNewManifold(Object b0, Object b1) {
+        //gNumManifold++;
+
+        //btAssert(gNumManifold < 65535);
+
+        CollisionObject body0 = (CollisionObject) b0;
+        CollisionObject body1 = (CollisionObject) b1;
 
 		/*
-		void* mem = 0;
+        void* mem = 0;
 
 		if (m_persistentManifoldPoolAllocator->getFreeCount())
 		{
@@ -138,32 +145,32 @@ public class CollisionDispatcher extends Dispatcher {
 		manifold->m_index1a = m_manifoldsPtr.size();
 		m_manifoldsPtr.push_back(manifold);
 		*/
-		
-		PersistentManifold manifold = manifoldsPool.get();
-		manifold.init(body0,body1,0);
-		
-		manifold.index1a = manifoldsPtr.size();
-		manifoldsPtr.add(manifold);
 
-		return manifold;
-	}
+        PersistentManifold manifold = manifoldsPool.get();
+        manifold.init(body0, body1, 0);
 
-	@Override
-	public void releaseManifold(PersistentManifold manifold) {
-		//gNumManifold--;
+        manifold.index1a = manifoldsPtr.size();
+        manifoldsPtr.add(manifold);
 
-		//printf("releaseManifold: gNumManifold %d\n",gNumManifold);
-		clearManifold(manifold);
+        return manifold;
+    }
 
-		// TODO: optimize
-		int findIndex = manifold.index1a;
-		assert (findIndex < manifoldsPtr.size());
-		Collections.swap(manifoldsPtr, findIndex, manifoldsPtr.size()-1);
-		manifoldsPtr.getQuick(findIndex).index1a = findIndex;
-		manifoldsPtr.removeQuick(manifoldsPtr.size()-1);
+    @Override
+    public void releaseManifold(PersistentManifold manifold) {
+        //gNumManifold--;
 
-		manifoldsPool.release(manifold);
-		/*
+        //printf("releaseManifold: gNumManifold %d\n",gNumManifold);
+        clearManifold(manifold);
+
+        // TODO: optimize
+        int findIndex = manifold.index1a;
+        assert (findIndex < manifoldsPtr.size());
+        Collections.swap(manifoldsPtr, findIndex, manifoldsPtr.size() - 1);
+        manifoldsPtr.getQuick(findIndex).index1a = findIndex;
+        manifoldsPtr.removeQuick(manifoldsPtr.size() - 1);
+
+        manifoldsPool.release(manifold);
+        /*
 		manifold->~btPersistentManifold();
 		if (m_persistentManifoldPoolAllocator->validPtr(manifold))
 		{
@@ -173,88 +180,87 @@ public class CollisionDispatcher extends Dispatcher {
 			btAlignedFree(manifold);
 		}
 		*/
-	}
+    }
 
-	@Override
-	public void clearManifold(PersistentManifold manifold) {
-		manifold.clearManifold();
-	}
+    @Override
+    public void clearManifold(PersistentManifold manifold) {
+        manifold.clearManifold();
+    }
 
-	@Override
-	public boolean needsCollision(CollisionObject body0, CollisionObject body1) {
-		assert (body0 != null);
-		assert (body1 != null);
+    @Override
+    public boolean needsCollision(CollisionObject body0, CollisionObject body1) {
+        assert (body0 != null);
+        assert (body1 != null);
 
-		boolean needsCollision = true;
+        boolean needsCollision = true;
 
-		//#ifdef BT_DEBUG
-		if (!staticWarningReported) {
-			// broadphase filtering already deals with this
-			if ((body0.isStaticObject() || body0.isKinematicObject()) &&
-					(body1.isStaticObject() || body1.isKinematicObject())) {
-				staticWarningReported = true;
-				System.err.println("warning CollisionDispatcher.needsCollision: static-static collision!");
-			}
-		}
-		//#endif //BT_DEBUG
+        //#ifdef BT_DEBUG
+        if (!staticWarningReported) {
+            // broadphase filtering already deals with this
+            if ((body0.isStaticObject() || body0.isKinematicObject()) &&
+                    (body1.isStaticObject() || body1.isKinematicObject())) {
+                staticWarningReported = true;
+                System.err.println("warning CollisionDispatcher.needsCollision: static-static collision!");
+            }
+        }
+        //#endif //BT_DEBUG
 
-		if ((!body0.isActive()) && (!body1.isActive())) {
-			needsCollision = false;
-		}
-		else if (!body0.checkCollideWith(body1)) {
-			needsCollision = false;
-		}
+        if ((!body0.isActive()) && (!body1.isActive())) {
+            needsCollision = false;
+        } else if (!body0.checkCollideWith(body1)) {
+            needsCollision = false;
+        }
 
-		return needsCollision;
-	}
+        return needsCollision;
+    }
 
-	@Override
-	public boolean needsResponse(CollisionObject body0, CollisionObject body1) {
-		//here you can do filtering
-		boolean hasResponse = (body0.hasContactResponse() && body1.hasContactResponse());
-		//no response between two static/kinematic bodies:
-		hasResponse = hasResponse && ((!body0.isStaticOrKinematicObject()) || (!body1.isStaticOrKinematicObject()));
-		return hasResponse;
-	}
+    @Override
+    public boolean needsResponse(CollisionObject body0, CollisionObject body1) {
+        //here you can do filtering
+        boolean hasResponse = (body0.hasContactResponse() && body1.hasContactResponse());
+        //no response between two static/kinematic bodies:
+        hasResponse = hasResponse && ((!body0.isStaticOrKinematicObject()) || (!body1.isStaticOrKinematicObject()));
+        return hasResponse;
+    }
 
-	private static class CollisionPairCallback extends OverlapCallback {
-		private DispatcherInfo dispatchInfo;
-		private CollisionDispatcher dispatcher;
+    private static class CollisionPairCallback extends OverlapCallback {
+        private DispatcherInfo dispatchInfo;
+        private CollisionDispatcher dispatcher;
 
-		public void init(DispatcherInfo dispatchInfo, CollisionDispatcher dispatcher) {
-			this.dispatchInfo = dispatchInfo;
-			this.dispatcher = dispatcher;
-		}
-		
-		public boolean processOverlap(BroadphasePair pair) {
-			dispatcher.getNearCallback().handleCollision(pair, dispatcher, dispatchInfo);
-			return false;
-		}
-	}
-	
-	private CollisionPairCallback collisionPairCallback = new CollisionPairCallback();
-	
-	@Override
-	public void dispatchAllCollisionPairs(OverlappingPairCache pairCache, DispatcherInfo dispatchInfo, Dispatcher dispatcher) {
-		//m_blockedForChanges = true;
-		collisionPairCallback.init(dispatchInfo, this);
-		pairCache.processAllOverlappingPairs(collisionPairCallback, dispatcher);
-		//m_blockedForChanges = false;
-	}
+        public void init(DispatcherInfo dispatchInfo, CollisionDispatcher dispatcher) {
+            this.dispatchInfo = dispatchInfo;
+            this.dispatcher = dispatcher;
+        }
 
-	@Override
-	public int getNumManifolds() {
-		return manifoldsPtr.size();
-	}
+        public boolean processOverlap(BroadphasePair pair) {
+            dispatcher.getNearCallback().handleCollision(pair, dispatcher, dispatchInfo);
+            return false;
+        }
+    }
 
-	@Override
-	public PersistentManifold getManifoldByIndexInternal(int index) {
-		return manifoldsPtr.getQuick(index);
-	}
+    private CollisionPairCallback collisionPairCallback = new CollisionPairCallback();
 
-	@Override
-	public ObjectArrayList<PersistentManifold> getInternalManifoldPointer() {
-		return manifoldsPtr;
-	}
-	
+    @Override
+    public void dispatchAllCollisionPairs(OverlappingPairCache pairCache, DispatcherInfo dispatchInfo, Dispatcher dispatcher) {
+        //m_blockedForChanges = true;
+        collisionPairCallback.init(dispatchInfo, this);
+        pairCache.processAllOverlappingPairs(collisionPairCallback, dispatcher);
+        //m_blockedForChanges = false;
+    }
+
+    @Override
+    public int getNumManifolds() {
+        return manifoldsPtr.size();
+    }
+
+    @Override
+    public PersistentManifold getManifoldByIndexInternal(int index) {
+        return manifoldsPtr.getQuick(index);
+    }
+
+    @Override
+    public ObjectArrayList<PersistentManifold> getInternalManifoldPointer() {
+        return manifoldsPtr;
+    }
+
 }

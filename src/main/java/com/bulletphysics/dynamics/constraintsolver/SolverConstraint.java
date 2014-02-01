@@ -28,32 +28,32 @@ import javax.vecmath.Vector3f;
 /**
  * 1D constraint along a normal axis between bodyA and bodyB. It can be combined
  * to solve contact and friction constraints.
- * 
+ *
  * @author jezek2
  */
 public class SolverConstraint {
 
-	public final Vector3f relpos1CrossNormal = new Vector3f();
-	public final Vector3f contactNormal = new Vector3f();
+    public final Vector3f relpos1CrossNormal = new Vector3f();
+    public final Vector3f contactNormal = new Vector3f();
 
-	public final Vector3f relpos2CrossNormal = new Vector3f();
-	public final Vector3f angularComponentA = new Vector3f();
+    public final Vector3f relpos2CrossNormal = new Vector3f();
+    public final Vector3f angularComponentA = new Vector3f();
 
-	public final Vector3f angularComponentB = new Vector3f();
-	
-	public float appliedPushImpulse;
-	
-	public float appliedImpulse;
-	public int solverBodyIdA;
-	public int solverBodyIdB;
-	
-	public float friction;
-	public float restitution;
-	public float jacDiagABInv;
-	public float penetration;
-	
-	public SolverConstraintType constraintType;
-	public int frictionIndex;
-	public Object originalContactPoint;
-	
+    public final Vector3f angularComponentB = new Vector3f();
+
+    public float appliedPushImpulse;
+
+    public float appliedImpulse;
+    public int solverBodyIdA;
+    public int solverBodyIdB;
+
+    public float friction;
+    public float restitution;
+    public float jacDiagABInv;
+    public float penetration;
+
+    public SolverConstraintType constraintType;
+    public int frictionIndex;
+    public Object originalContactPoint;
+
 }

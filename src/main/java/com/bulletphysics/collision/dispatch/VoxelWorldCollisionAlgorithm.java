@@ -30,16 +30,18 @@ import com.bulletphysics.collision.broadphase.DispatcherInfo;
 import com.bulletphysics.collision.narrowphase.PersistentManifold;
 import com.bulletphysics.collision.shapes.voxel.VoxelInfo;
 import com.bulletphysics.collision.shapes.voxel.VoxelWorldShape;
-import com.bulletphysics.linearmath.AabbUtil2;
 import com.bulletphysics.linearmath.IntUtil;
 import com.bulletphysics.linearmath.Transform;
 import com.bulletphysics.util.ObjectArrayList;
 import com.bulletphysics.util.ObjectPool;
-import cz.advel.stack.Stack;
 
-import javax.vecmath.*;
-import java.awt.*;
-import java.util.*;
+import javax.vecmath.Matrix3f;
+import javax.vecmath.Matrix4f;
+import javax.vecmath.Point3i;
+import javax.vecmath.Tuple3i;
+import javax.vecmath.Vector3f;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -49,8 +51,8 @@ public class VoxelWorldCollisionAlgorithm extends CollisionAlgorithm {
 
     private List<BlockCollisionInfo> blockCollisionInfo = new ArrayList<BlockCollisionInfo>();
     private boolean isSwapped;
-    private Tuple3i lastMin = new Point3i(0,0,0);
-    private Tuple3i lastMax = new Point3i(-1,-1,-1);
+    private Tuple3i lastMin = new Point3i(0, 0, 0);
+    private Tuple3i lastMax = new Point3i(-1, -1, -1);
 
     public void init(CollisionAlgorithmConstructionInfo ci, CollisionObject body0, CollisionObject body1, boolean isSwapped) {
         super.init(ci);
@@ -66,12 +68,11 @@ public class VoxelWorldCollisionAlgorithm extends CollisionAlgorithm {
             }
         }
         blockCollisionInfo.clear();
-        lastMin.set(0,0,0);
-        lastMax.set(-1,-1,-1);
+        lastMin.set(0, 0, 0);
+        lastMax.set(-1, -1, -1);
     }
 
-    private static class BlockCollisionInfo
-    {
+    private static class BlockCollisionInfo {
         final Tuple3i position;
         BroadphaseNativeType blockShape = BroadphaseNativeType.INVALID_SHAPE_PROXYTYPE;
         CollisionAlgorithm algorithm;
@@ -91,8 +92,8 @@ public class VoxelWorldCollisionAlgorithm extends CollisionAlgorithm {
 
         Transform otherObjTransform = new Transform();
         otherObj.getWorldTransform(otherObjTransform);
-        Vector3f aabbMin = Stack.alloc(Vector3f.class);
-        Vector3f aabbMax = Stack.alloc(Vector3f.class);
+        Vector3f aabbMin = new Vector3f();
+        Vector3f aabbMax = new Vector3f();
         otherObj.getCollisionShape().getAabb(otherObjTransform, aabbMin, aabbMax);
         Matrix4f otherObjMatrix = new Matrix4f();
         otherObjTransform.getMatrix(otherObjMatrix);
@@ -102,22 +103,21 @@ public class VoxelWorldCollisionAlgorithm extends CollisionAlgorithm {
         Tuple3i regionMin = new Point3i(IntUtil.floorToInt(aabbMin.x + 0.5f), IntUtil.floorToInt(aabbMin.y + 0.5f), IntUtil.floorToInt(aabbMin.z + 0.5f));
         Tuple3i regionMax = new Point3i(IntUtil.floorToInt(aabbMax.x + 0.5f), IntUtil.floorToInt(aabbMax.y + 0.5f), IntUtil.floorToInt(aabbMax.z + 0.5f));
 
-        Transform orgTrans = Stack.alloc(Transform.class);
+        Transform orgTrans = new Transform();
         colObj.getWorldTransform(orgTrans);
 
-        Transform newChildWorldTrans = Stack.alloc(Transform.class);
-        Matrix4f childMat = Stack.alloc(Matrix4f.class);
+        Transform newChildWorldTrans = new Transform();
+        Matrix4f childMat = new Matrix4f();
 
-        Matrix3f rot = Stack.alloc(Matrix3f.class);
+        Matrix3f rot = new Matrix3f();
         rot.setIdentity();
 
         for (int x = regionMin.x; x <= regionMax.x; ++x) {
             for (int y = regionMin.y; y <= regionMax.y; ++y) {
                 for (int z = regionMin.z; z <= regionMax.z; ++z) {
                     if ((x < lastMin.x || x > lastMax.x) ||
-                        (y < lastMin.y || y > lastMax.y) ||
-                        (z < lastMin.z || z > lastMax.z))
-                    {
+                            (y < lastMin.y || y > lastMax.y) ||
+                            (z < lastMin.z || z > lastMax.z)) {
                         blockCollisionInfo.add(new BlockCollisionInfo(x, y, z));
                     }
                 }
@@ -188,14 +188,14 @@ public class VoxelWorldCollisionAlgorithm extends CollisionAlgorithm {
         otherObj.getInterpolationWorldTransform(otherObjTransform);
         otherObj.getInterpolationLinearVelocity(otherLinearVelocity);
         otherObj.getInterpolationAngularVelocity(otherAngularVelocity);
-        Vector3f aabbMin = Stack.alloc(Vector3f.class);
-        Vector3f aabbMax = Stack.alloc(Vector3f.class);
+        Vector3f aabbMin = new Vector3f();
+        Vector3f aabbMax = new Vector3f();
         otherObj.getCollisionShape().getAabb(otherObjTransform, aabbMin, aabbMax);
 
         Region3i region = Region3i.createFromMinMax(new Vector3i(aabbMin, 0.5f), new Vector3i(aabbMax, 0.5f));
 
-        Transform orgTrans = Stack.alloc(Transform.class);
-        Transform childTrans = Stack.alloc(Transform.class);
+        Transform orgTrans = new Transform();
+        Transform childTrans = new Transform();
         float hitFraction = 1f;
 
         Matrix3f rot = new Matrix3f();
@@ -258,9 +258,11 @@ public class VoxelWorldCollisionAlgorithm extends CollisionAlgorithm {
 
         @Override
         public void releaseCollisionAlgorithm(CollisionAlgorithm algo) {
-            pool.release((VoxelWorldCollisionAlgorithm)algo);
+            pool.release((VoxelWorldCollisionAlgorithm) algo);
         }
-    };
+    }
+
+    ;
 
     public static class SwappedCreateFunc extends CollisionAlgorithmCreateFunc {
         private final ObjectPool<VoxelWorldCollisionAlgorithm> pool = ObjectPool.get(VoxelWorldCollisionAlgorithm.class);
@@ -274,7 +276,9 @@ public class VoxelWorldCollisionAlgorithm extends CollisionAlgorithm {
 
         @Override
         public void releaseCollisionAlgorithm(CollisionAlgorithm algo) {
-            pool.release((VoxelWorldCollisionAlgorithm)algo);
+            pool.release((VoxelWorldCollisionAlgorithm) algo);
         }
-    };
+    }
+
+    ;
 }

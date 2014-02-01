@@ -27,99 +27,97 @@ import com.bulletphysics.BulletGlobals;
 import com.bulletphysics.linearmath.MatrixUtil;
 import com.bulletphysics.linearmath.Transform;
 import com.bulletphysics.linearmath.VectorUtil;
-import cz.advel.stack.Stack;
 
 import javax.vecmath.Vector3f;
 
 /**
  * ConvexInternalShape is an internal base class, shared by most convex shape implementations.
- * 
+ *
  * @author jezek2
  */
 public abstract class ConvexInternalShape extends ConvexShape {
 
-	// local scaling. collisionMargin is not scaled !
-	protected final Vector3f localScaling = new Vector3f(1f, 1f, 1f);
-	protected final Vector3f implicitShapeDimensions = new Vector3f();
-	protected float collisionMargin = BulletGlobals.CONVEX_DISTANCE_MARGIN;
+    // local scaling. collisionMargin is not scaled !
+    protected final Vector3f localScaling = new Vector3f(1f, 1f, 1f);
+    protected final Vector3f implicitShapeDimensions = new Vector3f();
+    protected float collisionMargin = BulletGlobals.CONVEX_DISTANCE_MARGIN;
 
-	/**
-	 * getAabb's default implementation is brute force, expected derived classes to implement a fast dedicated version.
-	 */
-	@Override
-	public void getAabb(Transform t, Vector3f aabbMin, Vector3f aabbMax) {
-		getAabbSlow(t, aabbMin, aabbMax);
-	}
-	
-	@Override
-	public void getAabbSlow(Transform trans, Vector3f minAabb, Vector3f maxAabb) {
-		float margin = getMargin();
-		Vector3f vec = Stack.alloc(Vector3f.class);
-		Vector3f tmp1 = Stack.alloc(Vector3f.class);
-		Vector3f tmp2 = Stack.alloc(Vector3f.class);
-		
-		for (int i=0;i<3;i++)
-		{
-			vec.set(0f, 0f, 0f);
-			VectorUtil.setCoord(vec, i, 1f);
+    /**
+     * getAabb's default implementation is brute force, expected derived classes to implement a fast dedicated version.
+     */
+    @Override
+    public void getAabb(Transform t, Vector3f aabbMin, Vector3f aabbMax) {
+        getAabbSlow(t, aabbMin, aabbMax);
+    }
 
-			MatrixUtil.transposeTransform(tmp1, vec, trans.basis);
-			localGetSupportingVertex(tmp1, tmp2);
-			
-			trans.transform(tmp2);
+    @Override
+    public void getAabbSlow(Transform trans, Vector3f minAabb, Vector3f maxAabb) {
+        float margin = getMargin();
+        Vector3f vec = new Vector3f();
+        Vector3f tmp1 = new Vector3f();
+        Vector3f tmp2 = new Vector3f();
 
-			VectorUtil.setCoord(maxAabb, i, VectorUtil.getCoord(tmp2, i) + margin);
+        for (int i = 0; i < 3; i++) {
+            vec.set(0f, 0f, 0f);
+            VectorUtil.setCoord(vec, i, 1f);
 
-			VectorUtil.setCoord(vec, i, -1f);
+            MatrixUtil.transposeTransform(tmp1, vec, trans.basis);
+            localGetSupportingVertex(tmp1, tmp2);
 
-			MatrixUtil.transposeTransform(tmp1, vec, trans.basis);
-			localGetSupportingVertex(tmp1, tmp2);
-			trans.transform(tmp2);
+            trans.transform(tmp2);
 
-			VectorUtil.setCoord(minAabb, i, VectorUtil.getCoord(tmp2, i) - margin);
-		}
-	}
+            VectorUtil.setCoord(maxAabb, i, VectorUtil.getCoord(tmp2, i) + margin);
 
-	@Override
-	public Vector3f localGetSupportingVertex(Vector3f vec, Vector3f out) {
-		Vector3f supVertex = localGetSupportingVertexWithoutMargin(vec, out);
+            VectorUtil.setCoord(vec, i, -1f);
 
-		if (getMargin() != 0f) {
-			Vector3f vecnorm = Stack.alloc(vec);
-			if (vecnorm.lengthSquared() < (BulletGlobals.FLT_EPSILON * BulletGlobals.FLT_EPSILON)) {
-				vecnorm.set(-1f, -1f, -1f);
-			}
-			vecnorm.normalize();
-			supVertex.scaleAdd(getMargin(), vecnorm, supVertex);
-		}
-		return out;
-	}
-	
-	public void setLocalScaling(Vector3f scaling) {
-		localScaling.absolute(scaling);
-	}
-	
-	public Vector3f getLocalScaling(Vector3f out) {
-		out.set(localScaling);
-		return out;
-	}
+            MatrixUtil.transposeTransform(tmp1, vec, trans.basis);
+            localGetSupportingVertex(tmp1, tmp2);
+            trans.transform(tmp2);
 
-	public float getMargin() {
-		return collisionMargin;
-	}
+            VectorUtil.setCoord(minAabb, i, VectorUtil.getCoord(tmp2, i) - margin);
+        }
+    }
 
-	public void setMargin(float margin) {
-		this.collisionMargin = margin;
-	}
+    @Override
+    public Vector3f localGetSupportingVertex(Vector3f vec, Vector3f out) {
+        Vector3f supVertex = localGetSupportingVertexWithoutMargin(vec, out);
 
-	@Override
-	public int getNumPreferredPenetrationDirections() {
-		return 0;
-	}
+        if (getMargin() != 0f) {
+            Vector3f vecnorm = new Vector3f(vec);
+            if (vecnorm.lengthSquared() < (BulletGlobals.FLT_EPSILON * BulletGlobals.FLT_EPSILON)) {
+                vecnorm.set(-1f, -1f, -1f);
+            }
+            vecnorm.normalize();
+            supVertex.scaleAdd(getMargin(), vecnorm, supVertex);
+        }
+        return out;
+    }
 
-	@Override
-	public void getPreferredPenetrationDirection(int index, Vector3f penetrationVector) {
-		throw new InternalError();
-	}
-	
+    public void setLocalScaling(Vector3f scaling) {
+        localScaling.absolute(scaling);
+    }
+
+    public Vector3f getLocalScaling(Vector3f out) {
+        out.set(localScaling);
+        return out;
+    }
+
+    public float getMargin() {
+        return collisionMargin;
+    }
+
+    public void setMargin(float margin) {
+        this.collisionMargin = margin;
+    }
+
+    @Override
+    public int getNumPreferredPenetrationDirections() {
+        return 0;
+    }
+
+    @Override
+    public void getPreferredPenetrationDirection(int index, Vector3f penetrationVector) {
+        throw new InternalError();
+    }
+
 }

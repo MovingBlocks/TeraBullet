@@ -25,93 +25,93 @@ package com.bulletphysics.collision.broadphase;
 
 /**
  * Dispatcher uses these types.<p>
- * 
+ * <p/>
  * IMPORTANT NOTE: The types are ordered polyhedral, implicit convex and concave
  * to facilitate type checking.
- * 
+ *
  * @author jezek2
  */
 public enum BroadphaseNativeType {
-	
-	// polyhedral convex shapes:
-	BOX_SHAPE_PROXYTYPE,
-	TRIANGLE_SHAPE_PROXYTYPE,
-	TETRAHEDRAL_SHAPE_PROXYTYPE,
-	CONVEX_TRIANGLEMESH_SHAPE_PROXYTYPE,
-	CONVEX_HULL_SHAPE_PROXYTYPE,
-	
-	// implicit convex shapes:
-	IMPLICIT_CONVEX_SHAPES_START_HERE,
-	SPHERE_SHAPE_PROXYTYPE,
-	MULTI_SPHERE_SHAPE_PROXYTYPE,
-	CAPSULE_SHAPE_PROXYTYPE,
-	CONE_SHAPE_PROXYTYPE,
-	CONVEX_SHAPE_PROXYTYPE,
-	CYLINDER_SHAPE_PROXYTYPE,
-	UNIFORM_SCALING_SHAPE_PROXYTYPE,
-	MINKOWSKI_SUM_SHAPE_PROXYTYPE,
-	MINKOWSKI_DIFFERENCE_SHAPE_PROXYTYPE,
-	
-	// concave shapes:
-	CONCAVE_SHAPES_START_HERE,
-	
-	// keep all the convex shapetype below here, for the check IsConvexShape in broadphase proxy!
-	TRIANGLE_MESH_SHAPE_PROXYTYPE,
-	SCALED_TRIANGLE_MESH_SHAPE_PROXYTYPE,
-	
-	// used for demo integration FAST/Swift collision library and Bullet:
-	FAST_CONCAVE_MESH_PROXYTYPE,
-	
-	// terrain:
-	TERRAIN_SHAPE_PROXYTYPE,
-	
-	// used for GIMPACT Trimesh integration:
-	GIMPACT_SHAPE_PROXYTYPE,
-	
-	// multimaterial mesh:
-	MULTIMATERIAL_TRIANGLE_MESH_PROXYTYPE,
-	
-	EMPTY_SHAPE_PROXYTYPE,
-	STATIC_PLANE_PROXYTYPE,
-	CONCAVE_SHAPES_END_HERE,
-	COMPOUND_SHAPE_PROXYTYPE,
-	
-	SOFTBODY_SHAPE_PROXYTYPE,
+
+    // polyhedral convex shapes:
+    BOX_SHAPE_PROXYTYPE,
+    TRIANGLE_SHAPE_PROXYTYPE,
+    TETRAHEDRAL_SHAPE_PROXYTYPE,
+    CONVEX_TRIANGLEMESH_SHAPE_PROXYTYPE,
+    CONVEX_HULL_SHAPE_PROXYTYPE,
+
+    // implicit convex shapes:
+    IMPLICIT_CONVEX_SHAPES_START_HERE,
+    SPHERE_SHAPE_PROXYTYPE,
+    MULTI_SPHERE_SHAPE_PROXYTYPE,
+    CAPSULE_SHAPE_PROXYTYPE,
+    CONE_SHAPE_PROXYTYPE,
+    CONVEX_SHAPE_PROXYTYPE,
+    CYLINDER_SHAPE_PROXYTYPE,
+    UNIFORM_SCALING_SHAPE_PROXYTYPE,
+    MINKOWSKI_SUM_SHAPE_PROXYTYPE,
+    MINKOWSKI_DIFFERENCE_SHAPE_PROXYTYPE,
+
+    // concave shapes:
+    CONCAVE_SHAPES_START_HERE,
+
+    // keep all the convex shapetype below here, for the check IsConvexShape in broadphase proxy!
+    TRIANGLE_MESH_SHAPE_PROXYTYPE,
+    SCALED_TRIANGLE_MESH_SHAPE_PROXYTYPE,
+
+    // used for demo integration FAST/Swift collision library and Bullet:
+    FAST_CONCAVE_MESH_PROXYTYPE,
+
+    // terrain:
+    TERRAIN_SHAPE_PROXYTYPE,
+
+    // used for GIMPACT Trimesh integration:
+    GIMPACT_SHAPE_PROXYTYPE,
+
+    // multimaterial mesh:
+    MULTIMATERIAL_TRIANGLE_MESH_PROXYTYPE,
+
+    EMPTY_SHAPE_PROXYTYPE,
+    STATIC_PLANE_PROXYTYPE,
+    CONCAVE_SHAPES_END_HERE,
+    COMPOUND_SHAPE_PROXYTYPE,
+
+    SOFTBODY_SHAPE_PROXYTYPE,
     VOXEL_WORLD_PROXYTYPE,
 
-	INVALID_SHAPE_PROXYTYPE,
-	
-	MAX_BROADPHASE_COLLISION_TYPES;
-	
-	private static BroadphaseNativeType[] values = values();
-	
-	public static BroadphaseNativeType forValue(int value) {
-		return values[value];
-	}
-	
-	public boolean isPolyhedral() {
-		return (ordinal() < IMPLICIT_CONVEX_SHAPES_START_HERE.ordinal());
-	}
+    INVALID_SHAPE_PROXYTYPE,
 
-	public boolean isConvex() {
-		return (ordinal() < CONCAVE_SHAPES_START_HERE.ordinal());
-	}
+    MAX_BROADPHASE_COLLISION_TYPES;
 
-	public boolean isConcave() {
-		return ((ordinal() > CONCAVE_SHAPES_START_HERE.ordinal()) &&
-				(ordinal() < CONCAVE_SHAPES_END_HERE.ordinal()));
-	}
+    private static BroadphaseNativeType[] values = values();
 
-	public boolean isCompound() {
-		return (ordinal() == COMPOUND_SHAPE_PROXYTYPE.ordinal());
-	}
+    public static BroadphaseNativeType forValue(int value) {
+        return values[value];
+    }
+
+    public boolean isPolyhedral() {
+        return (ordinal() < IMPLICIT_CONVEX_SHAPES_START_HERE.ordinal());
+    }
+
+    public boolean isConvex() {
+        return (ordinal() < CONCAVE_SHAPES_START_HERE.ordinal());
+    }
+
+    public boolean isConcave() {
+        return ((ordinal() > CONCAVE_SHAPES_START_HERE.ordinal()) &&
+                (ordinal() < CONCAVE_SHAPES_END_HERE.ordinal()));
+    }
+
+    public boolean isCompound() {
+        return (ordinal() == COMPOUND_SHAPE_PROXYTYPE.ordinal());
+    }
 
     public boolean isVoxelWorld() {
         return (ordinal() == VOXEL_WORLD_PROXYTYPE.ordinal());
     }
 
-	public boolean isInfinite() {
-		return (ordinal() == STATIC_PLANE_PROXYTYPE.ordinal());
-	}
+    public boolean isInfinite() {
+        return (ordinal() == STATIC_PLANE_PROXYTYPE.ordinal());
+    }
 
 }

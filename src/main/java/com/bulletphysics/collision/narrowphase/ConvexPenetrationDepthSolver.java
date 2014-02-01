@@ -31,15 +31,15 @@ import javax.vecmath.Vector3f;
 
 /**
  * ConvexPenetrationDepthSolver provides an interface for penetration depth calculation.
- * 
+ *
  * @author jezek2
  */
 public abstract class ConvexPenetrationDepthSolver {
 
-	public abstract boolean calcPenDepth(SimplexSolverInterface simplexSolver,
-			ConvexShape convexA, ConvexShape convexB,
-			Transform transA, Transform transB,
-			Vector3f v, Vector3f pa, Vector3f pb,
-			IDebugDraw debugDraw/*, btStackAlloc* stackAlloc*/);
-	
+    public abstract boolean calcPenDepth(SimplexSolverInterface simplexSolver,
+                                         ConvexShape convexA, ConvexShape convexB,
+                                         Transform transA, Transform transB,
+                                         Vector3f v, Vector3f pa, Vector3f pb,
+                                         IDebugDraw debugDraw/*, btStackAlloc* stackAlloc*/);
+
 }

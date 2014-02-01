@@ -31,35 +31,35 @@ import javax.vecmath.Vector3f;
 
 /**
  * Default implementation of {@link VehicleRaycaster}.
- * 
+ *
  * @author jezek2
  */
 public class DefaultVehicleRaycaster extends VehicleRaycaster {
 
-	protected DynamicsWorld dynamicsWorld;
+    protected DynamicsWorld dynamicsWorld;
 
-	public DefaultVehicleRaycaster(DynamicsWorld world) {
-		this.dynamicsWorld = world;
-	}
+    public DefaultVehicleRaycaster(DynamicsWorld world) {
+        this.dynamicsWorld = world;
+    }
 
-	public Object castRay(Vector3f from, Vector3f to, VehicleRaycasterResult result) {
-		//RayResultCallback& resultCallback;
+    public Object castRay(Vector3f from, Vector3f to, VehicleRaycasterResult result) {
+        //RayResultCallback& resultCallback;
 
-		ClosestRayResultCallback rayCallback = new ClosestRayResultCallback(from, to);
+        ClosestRayResultCallback rayCallback = new ClosestRayResultCallback(from, to);
 
-		dynamicsWorld.rayTest(from, to, rayCallback);
+        dynamicsWorld.rayTest(from, to, rayCallback);
 
-		if (rayCallback.hasHit()) {
-			RigidBody body = RigidBody.upcast(rayCallback.collisionObject);
-			if (body != null && body.hasContactResponse()) {
-				result.hitPointInWorld.set(rayCallback.hitPointWorld);
-				result.hitNormalInWorld.set(rayCallback.hitNormalWorld);
-				result.hitNormalInWorld.normalize();
-				result.distFraction = rayCallback.closestHitFraction;
-				return body;
-			}
-		}
-		return null;
-	}
+        if (rayCallback.hasHit()) {
+            RigidBody body = RigidBody.upcast(rayCallback.collisionObject);
+            if (body != null && body.hasContactResponse()) {
+                result.hitPointInWorld.set(rayCallback.hitPointWorld);
+                result.hitNormalInWorld.set(rayCallback.hitNormalWorld);
+                result.hitNormalInWorld.normalize();
+                result.distFraction = rayCallback.closestHitFraction;
+                return body;
+            }
+        }
+        return null;
+    }
 
 }

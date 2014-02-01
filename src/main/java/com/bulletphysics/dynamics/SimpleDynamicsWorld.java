@@ -34,7 +34,6 @@ import com.bulletphysics.dynamics.constraintsolver.ConstraintSolver;
 import com.bulletphysics.dynamics.constraintsolver.ContactSolverInfo;
 import com.bulletphysics.linearmath.Transform;
 import com.bulletphysics.util.ObjectArrayList;
-import cz.advel.stack.Stack;
 
 import javax.vecmath.Vector3f;
 
@@ -42,197 +41,196 @@ import javax.vecmath.Vector3f;
  * SimpleDynamicsWorld serves as unit-test and to verify more complicated and
  * optimized dynamics worlds. Please use {@link DiscreteDynamicsWorld} instead
  * (or ContinuousDynamicsWorld once it is finished).
- * 
+ *
  * @author jezek2
  */
 public class SimpleDynamicsWorld extends DynamicsWorld {
 
-	protected ConstraintSolver constraintSolver;
-	protected boolean ownsConstraintSolver;
-	protected final Vector3f gravity = new Vector3f(0f, 0f, -10f);
-	
-	public SimpleDynamicsWorld(Dispatcher dispatcher, BroadphaseInterface pairCache, ConstraintSolver constraintSolver, CollisionConfiguration collisionConfiguration) {
-		super(dispatcher, pairCache, collisionConfiguration);
-		this.constraintSolver = constraintSolver;
-		this.ownsConstraintSolver = false;
-	}
+    protected ConstraintSolver constraintSolver;
+    protected boolean ownsConstraintSolver;
+    protected final Vector3f gravity = new Vector3f(0f, 0f, -10f);
 
-	protected void predictUnconstraintMotion(float timeStep) {
-		Transform tmpTrans = Stack.alloc(Transform.class);
-		
-		for (int i = 0; i < collisionObjects.size(); i++) {
-			CollisionObject colObj = collisionObjects.getQuick(i);
-			RigidBody body = RigidBody.upcast(colObj);
-			if (body != null) {
-				if (!body.isStaticObject()) {
-					if (body.isActive()) {
-						body.applyGravity();
-						body.integrateVelocities(timeStep);
-						body.applyDamping(timeStep);
-						body.predictIntegratedTransform(timeStep, body.getInterpolationWorldTransform(tmpTrans));
-					}
-				}
-			}
-		}
-	}
-	
-	protected void integrateTransforms(float timeStep) {
-		Transform predictedTrans = Stack.alloc(Transform.class);
-		for (int i = 0; i < collisionObjects.size(); i++) {
-			CollisionObject colObj = collisionObjects.getQuick(i);
-			RigidBody body = RigidBody.upcast(colObj);
-			if (body != null) {
-				if (body.isActive() && (!body.isStaticObject())) {
-					body.predictIntegratedTransform(timeStep, predictedTrans);
-					body.proceedToTransform(predictedTrans);
-				}
-			}
-		}
-	}
-	
-	/**
-	 * maxSubSteps/fixedTimeStep for interpolation is currently ignored for SimpleDynamicsWorld, use DiscreteDynamicsWorld instead.
-	 */
-	@Override
-	public int stepSimulation(float timeStep, int maxSubSteps, float fixedTimeStep) {
-		// apply gravity, predict motion
-		predictUnconstraintMotion(timeStep);
+    public SimpleDynamicsWorld(Dispatcher dispatcher, BroadphaseInterface pairCache, ConstraintSolver constraintSolver, CollisionConfiguration collisionConfiguration) {
+        super(dispatcher, pairCache, collisionConfiguration);
+        this.constraintSolver = constraintSolver;
+        this.ownsConstraintSolver = false;
+    }
 
-		DispatcherInfo dispatchInfo = getDispatchInfo();
-		dispatchInfo.timeStep = timeStep;
-		dispatchInfo.stepCount = 0;
-		dispatchInfo.debugDraw = getDebugDrawer();
+    protected void predictUnconstraintMotion(float timeStep) {
+        Transform tmpTrans = new Transform();
 
-		// perform collision detection
-		performDiscreteCollisionDetection();
+        for (int i = 0; i < collisionObjects.size(); i++) {
+            CollisionObject colObj = collisionObjects.getQuick(i);
+            RigidBody body = RigidBody.upcast(colObj);
+            if (body != null) {
+                if (!body.isStaticObject()) {
+                    if (body.isActive()) {
+                        body.applyGravity();
+                        body.integrateVelocities(timeStep);
+                        body.applyDamping(timeStep);
+                        body.predictIntegratedTransform(timeStep, body.getInterpolationWorldTransform(tmpTrans));
+                    }
+                }
+            }
+        }
+    }
 
-		// solve contact constraints
-		int numManifolds = dispatcher1.getNumManifolds();
-		if (numManifolds != 0)
-		{
-			ObjectArrayList<PersistentManifold> manifoldPtr = ((CollisionDispatcher)dispatcher1).getInternalManifoldPointer();
+    protected void integrateTransforms(float timeStep) {
+        Transform predictedTrans = new Transform();
+        for (int i = 0; i < collisionObjects.size(); i++) {
+            CollisionObject colObj = collisionObjects.getQuick(i);
+            RigidBody body = RigidBody.upcast(colObj);
+            if (body != null) {
+                if (body.isActive() && (!body.isStaticObject())) {
+                    body.predictIntegratedTransform(timeStep, predictedTrans);
+                    body.proceedToTransform(predictedTrans);
+                }
+            }
+        }
+    }
 
-			ContactSolverInfo infoGlobal = new ContactSolverInfo();
-			infoGlobal.timeStep = timeStep;
-			constraintSolver.prepareSolve(0,numManifolds);
-			constraintSolver.solveGroup(null,0,manifoldPtr, 0, numManifolds, null,0,0,infoGlobal,debugDrawer/*, m_stackAlloc*/,dispatcher1);
-			constraintSolver.allSolved(infoGlobal,debugDrawer/*, m_stackAlloc*/);
-		}
+    /**
+     * maxSubSteps/fixedTimeStep for interpolation is currently ignored for SimpleDynamicsWorld, use DiscreteDynamicsWorld instead.
+     */
+    @Override
+    public int stepSimulation(float timeStep, int maxSubSteps, float fixedTimeStep) {
+        // apply gravity, predict motion
+        predictUnconstraintMotion(timeStep);
 
-		// integrate transforms
-		integrateTransforms(timeStep);
+        DispatcherInfo dispatchInfo = getDispatchInfo();
+        dispatchInfo.timeStep = timeStep;
+        dispatchInfo.stepCount = 0;
+        dispatchInfo.debugDraw = getDebugDrawer();
 
-		updateAabbs();
+        // perform collision detection
+        performDiscreteCollisionDetection();
 
-		synchronizeMotionStates();
+        // solve contact constraints
+        int numManifolds = dispatcher1.getNumManifolds();
+        if (numManifolds != 0) {
+            ObjectArrayList<PersistentManifold> manifoldPtr = ((CollisionDispatcher) dispatcher1).getInternalManifoldPointer();
 
-		clearForces();
+            ContactSolverInfo infoGlobal = new ContactSolverInfo();
+            infoGlobal.timeStep = timeStep;
+            constraintSolver.prepareSolve(0, numManifolds);
+            constraintSolver.solveGroup(null, 0, manifoldPtr, 0, numManifolds, null, 0, 0, infoGlobal, debugDrawer/*, m_stackAlloc*/, dispatcher1);
+            constraintSolver.allSolved(infoGlobal, debugDrawer/*, m_stackAlloc*/);
+        }
 
-		return 1;
-	}
+        // integrate transforms
+        integrateTransforms(timeStep);
 
-	@Override
-	public void clearForces() {
-		// todo: iterate over awake simulation islands!
-		for (int i = 0; i < collisionObjects.size(); i++) {
-			CollisionObject colObj = collisionObjects.getQuick(i);
+        updateAabbs();
 
-			RigidBody body = RigidBody.upcast(colObj);
-			if (body != null) {
-				body.clearForces();
-			}
-		}
-	}
+        synchronizeMotionStates();
 
-	@Override
-	public void setGravity(Vector3f gravity) {
-		this.gravity.set(gravity);
-		for (int i = 0; i < collisionObjects.size(); i++) {
-			CollisionObject colObj = collisionObjects.getQuick(i);
-			RigidBody body = RigidBody.upcast(colObj);
-			if (body != null) {
-				body.setGravity(gravity);
-			}
-		}
-	}
+        clearForces();
 
-	@Override
-	public Vector3f getGravity(Vector3f out) {
-		out.set(gravity);
-		return out;
-	}
+        return 1;
+    }
 
-	@Override
-	public void addRigidBody(RigidBody body) {
-		body.setGravity(gravity);
+    @Override
+    public void clearForces() {
+        // todo: iterate over awake simulation islands!
+        for (int i = 0; i < collisionObjects.size(); i++) {
+            CollisionObject colObj = collisionObjects.getQuick(i);
 
-		if (body.getCollisionShape() != null) {
-			addCollisionObject(body);
-		}
-	}
+            RigidBody body = RigidBody.upcast(colObj);
+            if (body != null) {
+                body.clearForces();
+            }
+        }
+    }
 
-	@Override
-	public void removeRigidBody(RigidBody body) {
-		removeCollisionObject(body);
-	}
+    @Override
+    public void setGravity(Vector3f gravity) {
+        this.gravity.set(gravity);
+        for (int i = 0; i < collisionObjects.size(); i++) {
+            CollisionObject colObj = collisionObjects.getQuick(i);
+            RigidBody body = RigidBody.upcast(colObj);
+            if (body != null) {
+                body.setGravity(gravity);
+            }
+        }
+    }
 
-	@Override
-	public void updateAabbs() {
-		Transform tmpTrans = Stack.alloc(Transform.class);
-		Transform predictedTrans = Stack.alloc(Transform.class);
-		Vector3f minAabb = Stack.alloc(Vector3f.class), maxAabb = Stack.alloc(Vector3f.class);
+    @Override
+    public Vector3f getGravity(Vector3f out) {
+        out.set(gravity);
+        return out;
+    }
 
-		for (int i = 0; i < collisionObjects.size(); i++) {
-			CollisionObject colObj = collisionObjects.getQuick(i);
-			RigidBody body = RigidBody.upcast(colObj);
-			if (body != null) {
-				if (body.isActive() && (!body.isStaticObject())) {
-					colObj.getCollisionShape().getAabb(colObj.getWorldTransform(tmpTrans), minAabb, maxAabb);
-					BroadphaseInterface bp = getBroadphase();
-					bp.setAabb(body.getBroadphaseHandle(), minAabb, maxAabb, dispatcher1);
-				}
-			}
-		}
-	}
+    @Override
+    public void addRigidBody(RigidBody body) {
+        body.setGravity(gravity);
 
-	public void synchronizeMotionStates() {
-		Transform tmpTrans = Stack.alloc(Transform.class);
-		
-		// todo: iterate over awake simulation islands!
-		for (int i = 0; i < collisionObjects.size(); i++) {
-			CollisionObject colObj = collisionObjects.getQuick(i);
-			RigidBody body = RigidBody.upcast(colObj);
-			if (body != null && body.getMotionState() != null) {
-				if (body.getActivationState() != CollisionObject.ISLAND_SLEEPING) {
-					body.getMotionState().setWorldTransform(body.getWorldTransform(tmpTrans));
-				}
-			}
-		}
-	}
+        if (body.getCollisionShape() != null) {
+            addCollisionObject(body);
+        }
+    }
 
-	@Override
-	public void setConstraintSolver(ConstraintSolver solver) {
-		if (ownsConstraintSolver) {
-			//btAlignedFree(m_constraintSolver);
-		}
+    @Override
+    public void removeRigidBody(RigidBody body) {
+        removeCollisionObject(body);
+    }
 
-		ownsConstraintSolver = false;
-		constraintSolver = solver;
-	}
+    @Override
+    public void updateAabbs() {
+        Transform tmpTrans = new Transform();
+        Transform predictedTrans = new Transform();
+        Vector3f minAabb = new Vector3f(), maxAabb = new Vector3f();
 
-	@Override
-	public ConstraintSolver getConstraintSolver() {
-		return constraintSolver;
-	}
-	
-	@Override
-	public void debugDrawWorld() {
-		// TODO: throw new UnsupportedOperationException("Not supported yet.");
-	}
+        for (int i = 0; i < collisionObjects.size(); i++) {
+            CollisionObject colObj = collisionObjects.getQuick(i);
+            RigidBody body = RigidBody.upcast(colObj);
+            if (body != null) {
+                if (body.isActive() && (!body.isStaticObject())) {
+                    colObj.getCollisionShape().getAabb(colObj.getWorldTransform(tmpTrans), minAabb, maxAabb);
+                    BroadphaseInterface bp = getBroadphase();
+                    bp.setAabb(body.getBroadphaseHandle(), minAabb, maxAabb, dispatcher1);
+                }
+            }
+        }
+    }
 
-	@Override
-	public DynamicsWorldType getWorldType() {
-		throw new UnsupportedOperationException("Not supported yet.");
-	}
+    public void synchronizeMotionStates() {
+        Transform tmpTrans = new Transform();
+
+        // todo: iterate over awake simulation islands!
+        for (int i = 0; i < collisionObjects.size(); i++) {
+            CollisionObject colObj = collisionObjects.getQuick(i);
+            RigidBody body = RigidBody.upcast(colObj);
+            if (body != null && body.getMotionState() != null) {
+                if (body.getActivationState() != CollisionObject.ISLAND_SLEEPING) {
+                    body.getMotionState().setWorldTransform(body.getWorldTransform(tmpTrans));
+                }
+            }
+        }
+    }
+
+    @Override
+    public void setConstraintSolver(ConstraintSolver solver) {
+        if (ownsConstraintSolver) {
+            //btAlignedFree(m_constraintSolver);
+        }
+
+        ownsConstraintSolver = false;
+        constraintSolver = solver;
+    }
+
+    @Override
+    public ConstraintSolver getConstraintSolver() {
+        return constraintSolver;
+    }
+
+    @Override
+    public void debugDrawWorld() {
+        // TODO: throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public DynamicsWorldType getWorldType() {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
 
 }

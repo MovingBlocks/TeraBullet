@@ -50,119 +50,118 @@ import static com.bulletphysics.demos.opengl.IGL.GL_COLOR_BUFFER_BIT;
 import static com.bulletphysics.demos.opengl.IGL.GL_DEPTH_BUFFER_BIT;
 
 /**
- *
  * @author jezek2
  */
 public class GenericJointDemo extends DemoApplication {
 
-	private ObjectArrayList<RagDoll> ragdolls = new ObjectArrayList<RagDoll>();
+    private ObjectArrayList<RagDoll> ragdolls = new ObjectArrayList<RagDoll>();
 
-	public GenericJointDemo(IGL gl) {
-		super(gl);
-	}
+    public GenericJointDemo(IGL gl) {
+        super(gl);
+    }
 
-	public void initPhysics() {
-		// Setup the basic world
-		DefaultCollisionConfiguration collision_config = new DefaultCollisionConfiguration();
+    public void initPhysics() {
+        // Setup the basic world
+        DefaultCollisionConfiguration collision_config = new DefaultCollisionConfiguration();
 
-		CollisionDispatcher dispatcher = new CollisionDispatcher(collision_config);
+        CollisionDispatcher dispatcher = new CollisionDispatcher(collision_config);
 
-		Vector3f worldAabbMin = new Vector3f(-10000, -10000, -10000);
-		Vector3f worldAabbMax = new Vector3f(10000, 10000, 10000);
-		//BroadphaseInterface overlappingPairCache = new AxisSweep3(worldAabbMin, worldAabbMax);
-		//BroadphaseInterface overlappingPairCache = new SimpleBroadphase();
-		BroadphaseInterface overlappingPairCache = new DbvtBroadphase();
+        Vector3f worldAabbMin = new Vector3f(-10000, -10000, -10000);
+        Vector3f worldAabbMax = new Vector3f(10000, 10000, 10000);
+        //BroadphaseInterface overlappingPairCache = new AxisSweep3(worldAabbMin, worldAabbMax);
+        //BroadphaseInterface overlappingPairCache = new SimpleBroadphase();
+        BroadphaseInterface overlappingPairCache = new DbvtBroadphase();
 
-		//#ifdef USE_ODE_QUICKSTEP
-		//btConstraintSolver* constraintSolver = new OdeConstraintSolver();
-		//#else
-		ConstraintSolver constraintSolver = new SequentialImpulseConstraintSolver();
-		//#endif
+        //#ifdef USE_ODE_QUICKSTEP
+        //btConstraintSolver* constraintSolver = new OdeConstraintSolver();
+        //#else
+        ConstraintSolver constraintSolver = new SequentialImpulseConstraintSolver();
+        //#endif
 
-		dynamicsWorld = new DiscreteDynamicsWorld(dispatcher, overlappingPairCache, constraintSolver, collision_config);
+        dynamicsWorld = new DiscreteDynamicsWorld(dispatcher, overlappingPairCache, constraintSolver, collision_config);
 
-		dynamicsWorld.setGravity(new Vector3f(0f, -30f, 0f));
+        dynamicsWorld.setGravity(new Vector3f(0f, -30f, 0f));
 
-		dynamicsWorld.setDebugDrawer(new GLDebugDrawer(gl));
+        dynamicsWorld.setDebugDrawer(new GLDebugDrawer(gl));
 
-		// Setup a big ground box
-		{
-			CollisionShape groundShape = new BoxShape(new Vector3f(200f, 10f, 200f));
-			Transform groundTransform = new Transform();
-			groundTransform.setIdentity();
-			groundTransform.origin.set(0f, -15f, 0f);
-			localCreateRigidBody(0f, groundTransform, groundShape);
-		}
+        // Setup a big ground box
+        {
+            CollisionShape groundShape = new BoxShape(new Vector3f(200f, 10f, 200f));
+            Transform groundTransform = new Transform();
+            groundTransform.setIdentity();
+            groundTransform.origin.set(0f, -15f, 0f);
+            localCreateRigidBody(0f, groundTransform, groundShape);
+        }
 
-		// Spawn one ragdoll
-		spawnRagdoll();
+        // Spawn one ragdoll
+        spawnRagdoll();
 
-		clientResetScene();
-	}
+        clientResetScene();
+    }
 
-	public void spawnRagdoll() {
-		spawnRagdoll(false);
-	}
-	
-	public void spawnRagdoll(boolean random) {
-		RagDoll ragDoll = new RagDoll(dynamicsWorld, new Vector3f(0f, 0f, 10f), 5f);
-		ragdolls.add(ragDoll);
-	}
-	
-	@Override
-	public void clientMoveAndDisplay() {
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    public void spawnRagdoll() {
+        spawnRagdoll(false);
+    }
 
-		// simple dynamics world doesn't handle fixed-time-stepping
-		float ms = getDeltaTimeMicroseconds();
-		float minFPS = 1000000f / 60f;
-		if (ms > minFPS) {
-			ms = minFPS;
-		}
+    public void spawnRagdoll(boolean random) {
+        RagDoll ragDoll = new RagDoll(dynamicsWorld, new Vector3f(0f, 0f, 10f), 5f);
+        ragdolls.add(ragDoll);
+    }
 
-		if (dynamicsWorld != null) {
-			dynamicsWorld.stepSimulation(ms / 1000000.f);
-			// optional but useful: debug drawing
-			dynamicsWorld.debugDrawWorld();
-		}
+    @Override
+    public void clientMoveAndDisplay() {
+        gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		renderme();
+        // simple dynamics world doesn't handle fixed-time-stepping
+        float ms = getDeltaTimeMicroseconds();
+        float minFPS = 1000000f / 60f;
+        if (ms > minFPS) {
+            ms = minFPS;
+        }
 
-		//glFlush();
-		//glutSwapBuffers();
-	}
+        if (dynamicsWorld != null) {
+            dynamicsWorld.stepSimulation(ms / 1000000.f);
+            // optional but useful: debug drawing
+            dynamicsWorld.debugDrawWorld();
+        }
 
-	@Override
-	public void displayCallback() {
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        renderme();
 
-		if (dynamicsWorld != null) {
-			dynamicsWorld.debugDrawWorld();
-		}
+        //glFlush();
+        //glutSwapBuffers();
+    }
 
-		renderme();
+    @Override
+    public void displayCallback() {
+        gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		//glFlush();
-		//glutSwapBuffers();
-	}
+        if (dynamicsWorld != null) {
+            dynamicsWorld.debugDrawWorld();
+        }
 
-	@Override
-	public void keyboardCallback(char key, int x, int y, int modifiers) {
-		switch (key) {
-			case 'e':
-				spawnRagdoll(true);
-				break;
-			default:
-				super.keyboardCallback(key, x, y, modifiers);
-		}
-	}
+        renderme();
 
-	public static void main(String[] args) throws LWJGLException {
-		GenericJointDemo demoApp = new GenericJointDemo(LWJGL.getGL());
-		demoApp.initPhysics();
-		demoApp.setCameraDistance(10f);
+        //glFlush();
+        //glutSwapBuffers();
+    }
 
-		LWJGL.main(args, 800, 600, "Joint 6DOF - Sequencial Impulse Solver", demoApp);
-	}
-	
+    @Override
+    public void keyboardCallback(char key, int x, int y, int modifiers) {
+        switch (key) {
+            case 'e':
+                spawnRagdoll(true);
+                break;
+            default:
+                super.keyboardCallback(key, x, y, modifiers);
+        }
+    }
+
+    public static void main(String[] args) throws LWJGLException {
+        GenericJointDemo demoApp = new GenericJointDemo(LWJGL.getGL());
+        demoApp.initPhysics();
+        demoApp.setCameraDistance(10f);
+
+        LWJGL.main(args, 800, 600, "Joint 6DOF - Sequencial Impulse Solver", demoApp);
+    }
+
 }

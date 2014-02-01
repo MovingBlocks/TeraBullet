@@ -26,148 +26,145 @@ package com.bulletphysics.collision.shapes;
 import com.bulletphysics.collision.broadphase.BroadphaseNativeType;
 import com.bulletphysics.collision.dispatch.CollisionObject;
 import com.bulletphysics.linearmath.Transform;
-import cz.advel.stack.Stack;
 
 import javax.vecmath.Vector3f;
 
 /**
  * CollisionShape class provides an interface for collision shapes that can be
  * shared among {@link CollisionObject}s.
- * 
+ *
  * @author jezek2
  */
 public abstract class CollisionShape {
 
-	//protected final BulletStack stack = BulletStack.get();
+    //protected final BulletStack stack = BulletStack.get();
 
-	protected Object userPointer;
-	
-	///getAabb returns the axis aligned bounding box in the coordinate frame of the given transform t.
-	public abstract void getAabb(Transform t, Vector3f aabbMin, Vector3f aabbMax);
+    protected Object userPointer;
 
-	public void getBoundingSphere(Vector3f center, float[] radius) {
-		Vector3f tmp = Stack.alloc(Vector3f.class);
+    ///getAabb returns the axis aligned bounding box in the coordinate frame of the given transform t.
+    public abstract void getAabb(Transform t, Vector3f aabbMin, Vector3f aabbMax);
 
-		Transform tr = Stack.alloc(Transform.class);
-		tr.setIdentity();
-		Vector3f aabbMin = Stack.alloc(Vector3f.class), aabbMax = Stack.alloc(Vector3f.class);
+    public void getBoundingSphere(Vector3f center, float[] radius) {
+        Vector3f tmp = new Vector3f();
 
-		getAabb(tr, aabbMin, aabbMax);
+        Transform tr = new Transform();
+        tr.setIdentity();
+        Vector3f aabbMin = new Vector3f(), aabbMax = new Vector3f();
 
-		tmp.sub(aabbMax, aabbMin);
-		radius[0] = tmp.length() * 0.5f;
+        getAabb(tr, aabbMin, aabbMax);
 
-		tmp.add(aabbMin, aabbMax);
-		center.scale(0.5f, tmp);
-	}
+        tmp.sub(aabbMax, aabbMin);
+        radius[0] = tmp.length() * 0.5f;
 
-	///getAngularMotionDisc returns the maximus radius needed for Conservative Advancement to handle time-of-impact with rotations.
-	public float getAngularMotionDisc() {
-		Vector3f center = Stack.alloc(Vector3f.class);
-		float[] disc = new float[1]; // TODO: stack
-		getBoundingSphere(center, disc);
-		disc[0] += center.length();
-		return disc[0];
-	}
+        tmp.add(aabbMin, aabbMax);
+        center.scale(0.5f, tmp);
+    }
 
-	///calculateTemporalAabb calculates the enclosing aabb for the moving object over interval [0..timeStep)
-	///result is conservative
-	public void calculateTemporalAabb(Transform curTrans, Vector3f linvel, Vector3f angvel, float timeStep, Vector3f temporalAabbMin, Vector3f temporalAabbMax) {
-		//start with static aabb
-		getAabb(curTrans, temporalAabbMin, temporalAabbMax);
+    ///getAngularMotionDisc returns the maximus radius needed for Conservative Advancement to handle time-of-impact with rotations.
+    public float getAngularMotionDisc() {
+        Vector3f center = new Vector3f();
+        float[] disc = new float[1]; // TODO: stack
+        getBoundingSphere(center, disc);
+        disc[0] += center.length();
+        return disc[0];
+    }
 
-		float temporalAabbMaxx = temporalAabbMax.x;
-		float temporalAabbMaxy = temporalAabbMax.y;
-		float temporalAabbMaxz = temporalAabbMax.z;
-		float temporalAabbMinx = temporalAabbMin.x;
-		float temporalAabbMiny = temporalAabbMin.y;
-		float temporalAabbMinz = temporalAabbMin.z;
+    ///calculateTemporalAabb calculates the enclosing aabb for the moving object over interval [0..timeStep)
+    ///result is conservative
+    public void calculateTemporalAabb(Transform curTrans, Vector3f linvel, Vector3f angvel, float timeStep, Vector3f temporalAabbMin, Vector3f temporalAabbMax) {
+        //start with static aabb
+        getAabb(curTrans, temporalAabbMin, temporalAabbMax);
 
-		// add linear motion
-		Vector3f linMotion = Stack.alloc(linvel);
-		linMotion.scale(timeStep);
+        float temporalAabbMaxx = temporalAabbMax.x;
+        float temporalAabbMaxy = temporalAabbMax.y;
+        float temporalAabbMaxz = temporalAabbMax.z;
+        float temporalAabbMinx = temporalAabbMin.x;
+        float temporalAabbMiny = temporalAabbMin.y;
+        float temporalAabbMinz = temporalAabbMin.z;
 
-		//todo: simd would have a vector max/min operation, instead of per-element access
-		if (linMotion.x > 0f) {
-			temporalAabbMaxx += linMotion.x;
-		}
-		else {
-			temporalAabbMinx += linMotion.x;
-		}
-		if (linMotion.y > 0f) {
-			temporalAabbMaxy += linMotion.y;
-		}
-		else {
-			temporalAabbMiny += linMotion.y;
-		}
-		if (linMotion.z > 0f) {
-			temporalAabbMaxz += linMotion.z;
-		}
-		else {
-			temporalAabbMinz += linMotion.z;
-		}
+        // add linear motion
+        Vector3f linMotion = new Vector3f(linvel);
+        linMotion.scale(timeStep);
 
-		//add conservative angular motion
-		float angularMotion = angvel.length() * getAngularMotionDisc() * timeStep;
-		Vector3f angularMotion3d = Stack.alloc(Vector3f.class);
-		angularMotion3d.set(angularMotion, angularMotion, angularMotion);
-		temporalAabbMin.set(temporalAabbMinx, temporalAabbMiny, temporalAabbMinz);
-		temporalAabbMax.set(temporalAabbMaxx, temporalAabbMaxy, temporalAabbMaxz);
+        //todo: simd would have a vector max/min operation, instead of per-element access
+        if (linMotion.x > 0f) {
+            temporalAabbMaxx += linMotion.x;
+        } else {
+            temporalAabbMinx += linMotion.x;
+        }
+        if (linMotion.y > 0f) {
+            temporalAabbMaxy += linMotion.y;
+        } else {
+            temporalAabbMiny += linMotion.y;
+        }
+        if (linMotion.z > 0f) {
+            temporalAabbMaxz += linMotion.z;
+        } else {
+            temporalAabbMinz += linMotion.z;
+        }
 
-		temporalAabbMin.sub(angularMotion3d);
-		temporalAabbMax.add(angularMotion3d);
-	}
+        //add conservative angular motion
+        float angularMotion = angvel.length() * getAngularMotionDisc() * timeStep;
+        Vector3f angularMotion3d = new Vector3f();
+        angularMotion3d.set(angularMotion, angularMotion, angularMotion);
+        temporalAabbMin.set(temporalAabbMinx, temporalAabbMiny, temporalAabbMinz);
+        temporalAabbMax.set(temporalAabbMaxx, temporalAabbMaxy, temporalAabbMaxz);
 
-//#ifndef __SPU__
-	public boolean isPolyhedral() {
-		return getShapeType().isPolyhedral();
-	}
+        temporalAabbMin.sub(angularMotion3d);
+        temporalAabbMax.add(angularMotion3d);
+    }
 
-	public boolean isConvex() {
-		return getShapeType().isConvex();
-	}
+    //#ifndef __SPU__
+    public boolean isPolyhedral() {
+        return getShapeType().isPolyhedral();
+    }
 
-	public boolean isConcave() {
-		return getShapeType().isConcave();
-	}
+    public boolean isConvex() {
+        return getShapeType().isConvex();
+    }
 
-	public boolean isCompound() {
-		return getShapeType().isCompound();
-	}
+    public boolean isConcave() {
+        return getShapeType().isConcave();
+    }
+
+    public boolean isCompound() {
+        return getShapeType().isCompound();
+    }
 
     public boolean isVoxelWorld() {
         return getShapeType().isVoxelWorld();
     }
 
-	///isInfinite is used to catch simulation error (aabb check)
-	public boolean isInfinite() {
-		return getShapeType().isInfinite();
-	}
+    ///isInfinite is used to catch simulation error (aabb check)
+    public boolean isInfinite() {
+        return getShapeType().isInfinite();
+    }
 
-	public abstract BroadphaseNativeType getShapeType();
+    public abstract BroadphaseNativeType getShapeType();
 
-	public abstract void setLocalScaling(Vector3f scaling);
-	
-	// TODO: returns const
-	public abstract Vector3f getLocalScaling(Vector3f out);
+    public abstract void setLocalScaling(Vector3f scaling);
 
-	public abstract void calculateLocalInertia(float mass, Vector3f inertia);
+    // TODO: returns const
+    public abstract Vector3f getLocalScaling(Vector3f out);
+
+    public abstract void calculateLocalInertia(float mass, Vector3f inertia);
 
 
-//debugging support
-	public abstract String getName();
-//#endif //__SPU__
-	public abstract void setMargin(float margin);
+    //debugging support
+    public abstract String getName();
 
-	public abstract float getMargin();
-	
-	// optional user data pointer
-	public void setUserPointer(Object userPtr) {
-		userPointer = userPtr;
-	}
+    //#endif //__SPU__
+    public abstract void setMargin(float margin);
 
-	public Object getUserPointer() {
-		return userPointer;
-	}
-	
+    public abstract float getMargin();
+
+    // optional user data pointer
+    public void setUserPointer(Object userPtr) {
+        userPointer = userPtr;
+    }
+
+    public Object getUserPointer() {
+        return userPointer;
+    }
+
 }

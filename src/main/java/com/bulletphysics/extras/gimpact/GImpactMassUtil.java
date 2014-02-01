@@ -30,17 +30,16 @@ package com.bulletphysics.extras.gimpact;
 import javax.vecmath.Vector3f;
 
 /**
- *
  * @author jezek2
  */
 class GImpactMassUtil {
 
-	public static Vector3f get_point_inertia(Vector3f point, float mass, Vector3f out) {
-		float x2 = point.x * point.x;
-		float y2 = point.y * point.y;
-		float z2 = point.z * point.z;
-		out.set(mass * (y2 + z2), mass * (x2 + z2), mass * (x2 + y2));
-		return out;
-	}
-	
+    public static Vector3f get_point_inertia(Vector3f point, float mass, Vector3f out) {
+        float x2 = point.x * point.x;
+        float y2 = point.y * point.y;
+        float z2 = point.z * point.z;
+        out.set(mass * (y2 + z2), mass * (x2 + z2), mass * (x2 + y2));
+        return out;
+    }
+
 }

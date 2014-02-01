@@ -33,136 +33,137 @@ package com.bulletphysics.demos.applet;
 
 /**
  * Sphere.java
- *
- *
+ * <p/>
+ * <p/>
  * Created 23-dec-2003
+ *
  * @author Erik Duijs
  */
 public class Sphere extends Quadric {
 
-	/**
-	 * Constructor
-	 */
-	public Sphere() {
-		super();
-	}
+    /**
+     * Constructor
+     */
+    public Sphere() {
+        super();
+    }
 
-	/**
-	 * draws a sphere of the given	radius centered	around the origin.
-	 * The sphere is subdivided around the z axis into slices and along the z axis
-	 * into stacks (similar to lines of longitude and latitude).
-	 *
-	 * If the orientation is set to GLU.OUTSIDE (with glu.quadricOrientation), then
-	 * any normals generated point away from the center of the sphere. Otherwise,
-	 * they point toward the center of the sphere.
+    /**
+     * draws a sphere of the given	radius centered	around the origin.
+     * The sphere is subdivided around the z axis into slices and along the z axis
+     * into stacks (similar to lines of longitude and latitude).
+     * <p/>
+     * If the orientation is set to GLU.OUTSIDE (with glu.quadricOrientation), then
+     * any normals generated point away from the center of the sphere. Otherwise,
+     * they point toward the center of the sphere.
+     * <p/>
+     * If texturing is turned on (with glu.quadricTexture), then texture
+     * coordinates are generated so that t ranges from 0.0 at z=-radius to 1.0 at
+     * z=radius (t increases linearly along longitudinal lines), and s ranges from
+     * 0.0 at the +y axis, to 0.25 at the +x axis, to 0.5 at the -y axis, to 0.75
+     * at the -x axis, and back to 1.0 at the +y axis.
+     */
+    public void draw(Graphics3D gl, float radius, int slices, int stacks) {
+        // TODO
 
-	 * If texturing is turned on (with glu.quadricTexture), then texture
-	 * coordinates are generated so that t ranges from 0.0 at z=-radius to 1.0 at
-	 * z=radius (t increases linearly along longitudinal lines), and s ranges from
-	 * 0.0 at the +y axis, to 0.25 at the +x axis, to 0.5 at the -y axis, to 0.75
-	 * at the -x axis, and back to 1.0 at the +y axis.
-	 */
-	public void draw(Graphics3D gl, float radius, int slices, int stacks) {
-		// TODO
+        float rho, drho, theta, dtheta;
+        float x, y, z;
+        float s, t, ds, dt;
+        int i, j, imin, imax;
+        boolean normals;
+        float nsign;
 
-		float rho, drho, theta, dtheta;
-		float x, y, z;
-		float s, t, ds, dt;
-		int i, j, imin, imax;
-		boolean normals;
-		float nsign;
+        normals = super.normals != GLU_NONE;
 
-		normals = super.normals != GLU_NONE;
+        if (super.orientation == GLU_INSIDE) {
+            nsign = -1.0f;
+        } else {
+            nsign = 1.0f;
+        }
 
-		if (super.orientation == GLU_INSIDE) {
-			nsign = -1.0f;
-		} else {
-			nsign = 1.0f;
-		}
+        drho = (float) Math.PI / stacks;
+        dtheta = 2.0f * (float) Math.PI / slices;
 
-		drho = (float)Math.PI / stacks;
-		dtheta = 2.0f * (float)Math.PI / slices;
+        if (super.drawStyle == GLU_FILL) {
+            if (!super.textureFlag) {
+                // draw +Z end as a triangle fan
+                gl.begin(Graphics3D.TRIANGLE_FAN);
+                gl.setNormal(0.0f, 0.0f, 1.0f);
+                gl.addVertex(0.0f, 0.0f, nsign * radius);
+                for (j = 0; j <= slices; j++) {
+                    theta = (j == slices) ? 0.0f : j * dtheta;
+                    x = -sin(theta) * sin(drho);
+                    y = cos(theta) * sin(drho);
+                    z = nsign * cos(drho);
+                    if (normals) {
+                        gl.setNormal(x * nsign, y * nsign, z * nsign);
+                    }
+                    gl.addVertex(x * radius, y * radius, z * radius);
+                }
+                gl.end();
+            }
 
-		if (super.drawStyle == GLU_FILL) {
-			if (!super.textureFlag) {
-				// draw +Z end as a triangle fan
-				gl.begin(Graphics3D.TRIANGLE_FAN);
-				gl.setNormal(0.0f, 0.0f, 1.0f);
-				gl.addVertex(0.0f, 0.0f, nsign * radius);
-				for (j = 0; j <= slices; j++) {
-					theta = (j == slices) ? 0.0f : j * dtheta;
-					x = -sin(theta) * sin(drho);
-					y = cos(theta) * sin(drho);
-					z = nsign * cos(drho);
-					if (normals) {
-						gl.setNormal(x * nsign, y * nsign, z * nsign);
-					}
-					gl.addVertex(x * radius, y * radius, z * radius);
-				}
-				gl.end();
-			}
+            ds = 1.0f / slices;
+            dt = 1.0f / stacks;
+            t = 1.0f; // because loop now runs from 0
+            if (super.textureFlag) {
+                imin = 0;
+                imax = stacks;
+            } else {
+                imin = 1;
+                imax = stacks - 1;
+            }
 
-			ds = 1.0f / slices;
-			dt = 1.0f / stacks;
-			t = 1.0f; // because loop now runs from 0
-			if (super.textureFlag) {
-				imin = 0;
-				imax = stacks;
-			} else {
-				imin = 1;
-				imax = stacks - 1;
-			}
+            // draw intermediate stacks as quad strips
+            for (i = imin; i < imax; i++) {
+                rho = i * drho;
+                gl.begin(Graphics3D.QUAD_STRIP);
+                s = 0.0f;
+                for (j = 0; j <= slices; j++) {
+                    theta = (j == slices) ? 0.0f : j * dtheta;
+                    x = -sin(theta) * sin(rho);
+                    y = cos(theta) * sin(rho);
+                    z = nsign * cos(rho);
+                    if (normals) {
+                        gl.setNormal(x * nsign, y * nsign, z * nsign);
+                    }
+                    TXTR_COORD(gl, s, t);
+                    gl.addVertex(x * radius, y * radius, z * radius);
+                    x = -sin(theta) * sin(rho + drho);
+                    y = cos(theta) * sin(rho + drho);
+                    z = nsign * cos(rho + drho);
+                    if (normals) {
+                        gl.setNormal(x * nsign, y * nsign, z * nsign);
+                    }
+                    TXTR_COORD(gl, s, t - dt);
+                    s += ds;
+                    gl.addVertex(x * radius, y * radius, z * radius);
+                }
+                gl.end();
+                t -= dt;
+            }
 
-			// draw intermediate stacks as quad strips
-			for (i = imin; i < imax; i++) {
-				rho = i * drho;
-				gl.begin(Graphics3D.QUAD_STRIP);
-				s = 0.0f;
-				for (j = 0; j <= slices; j++) {
-					theta = (j == slices) ? 0.0f : j * dtheta;
-					x = -sin(theta) * sin(rho);
-					y = cos(theta) * sin(rho);
-					z = nsign * cos(rho);
-					if (normals) {
-						gl.setNormal(x * nsign, y * nsign, z * nsign);
-					}
-					TXTR_COORD(gl, s, t);
-					gl.addVertex(x * radius, y * radius, z * radius);
-					x = -sin(theta) * sin(rho + drho);
-					y = cos(theta) * sin(rho + drho);
-					z = nsign * cos(rho + drho);
-					if (normals) {
-						gl.setNormal(x * nsign, y * nsign, z * nsign);
-					}
-					TXTR_COORD(gl, s, t - dt);
-					s += ds;
-					gl.addVertex(x * radius, y * radius, z * radius);
-				}
-				gl.end();
-				t -= dt;
-			}
-
-			if (!super.textureFlag) {
-				// draw -Z end as a triangle fan
-				gl.begin(Graphics3D.TRIANGLE_FAN);
-				gl.setNormal(0.0f, 0.0f, -1.0f);
-				gl.addVertex(0.0f, 0.0f, -radius * nsign);
-				rho = (float)Math.PI - drho;
-				s = 1.0f;
-				for (j = slices; j >= 0; j--) {
-					theta = (j == slices) ? 0.0f : j * dtheta;
-					x = -sin(theta) * sin(rho);
-					y = cos(theta) * sin(rho);
-					z = nsign * cos(rho);
-					if (normals)
-						gl.setNormal(x * nsign, y * nsign, z * nsign);
-					s -= ds;
-					gl.addVertex(x * radius, y * radius, z * radius);
-				}
-				gl.end();
-			}
-		} /*else if (
-			super.drawStyle == GLU_LINE
+            if (!super.textureFlag) {
+                // draw -Z end as a triangle fan
+                gl.begin(Graphics3D.TRIANGLE_FAN);
+                gl.setNormal(0.0f, 0.0f, -1.0f);
+                gl.addVertex(0.0f, 0.0f, -radius * nsign);
+                rho = (float) Math.PI - drho;
+                s = 1.0f;
+                for (j = slices; j >= 0; j--) {
+                    theta = (j == slices) ? 0.0f : j * dtheta;
+                    x = -sin(theta) * sin(rho);
+                    y = cos(theta) * sin(rho);
+                    z = nsign * cos(rho);
+                    if (normals)
+                        gl.setNormal(x * nsign, y * nsign, z * nsign);
+                    s -= ds;
+                    gl.addVertex(x * radius, y * radius, z * radius);
+                }
+                gl.end();
+            }
+        } /*else if (
+            super.drawStyle == GLU_LINE
 				|| super.drawStyle == GLU_SILHOUETTE) {
 			// draw stack lines
 			for (i = 1;
@@ -221,6 +222,6 @@ public class Sphere extends Quadric {
 			}
 			GL11.glEnd();
 		}*/
-	}
+    }
 
 }

@@ -25,79 +25,78 @@ package com.bulletphysics.linearmath;
 
 import com.bulletphysics.collision.dispatch.CollisionWorld;
 import com.bulletphysics.dynamics.DynamicsWorld;
-import cz.advel.stack.Stack;
 
 import javax.vecmath.Vector3f;
 
 /**
  * IDebugDraw interface class allows hooking up a debug renderer to visually debug
  * simulations.<p>
- * 
+ * <p/>
  * Typical use case: create a debug drawer object, and assign it to a {@link CollisionWorld}
  * or {@link DynamicsWorld} using setDebugDrawer and call debugDrawWorld.<p>
- * 
+ * <p/>
  * A class that implements the IDebugDraw interface has to implement the drawLine
  * method at a minimum.
- * 
+ *
  * @author jezek2
  */
 public abstract class IDebugDraw {
-	
-	//protected final BulletStack stack = BulletStack.get();
 
-	public abstract void drawLine(Vector3f from, Vector3f to, Vector3f color);
-	
-	public void drawTriangle(Vector3f v0, Vector3f v1, Vector3f v2, Vector3f n0, Vector3f n1, Vector3f n2, Vector3f color, float alpha) {
-		drawTriangle(v0, v1, v2, color, alpha);
-	}
-	
-	public void drawTriangle(Vector3f v0, Vector3f v1, Vector3f v2, Vector3f color, float alpha) {
-		drawLine(v0, v1, color);
-		drawLine(v1, v2, color);
-		drawLine(v2, v0, color);
-	}
+    //protected final BulletStack stack = BulletStack.get();
 
-	public abstract void drawContactPoint(Vector3f PointOnB, Vector3f normalOnB, float distance, int lifeTime, Vector3f color);
+    public abstract void drawLine(Vector3f from, Vector3f to, Vector3f color);
 
-	public abstract void reportErrorWarning(String warningString);
+    public void drawTriangle(Vector3f v0, Vector3f v1, Vector3f v2, Vector3f n0, Vector3f n1, Vector3f n2, Vector3f color, float alpha) {
+        drawTriangle(v0, v1, v2, color, alpha);
+    }
 
-	public abstract void draw3dText(Vector3f location, String textString);
+    public void drawTriangle(Vector3f v0, Vector3f v1, Vector3f v2, Vector3f color, float alpha) {
+        drawLine(v0, v1, color);
+        drawLine(v1, v2, color);
+        drawLine(v2, v0, color);
+    }
 
-	public abstract void setDebugMode(int debugMode);
+    public abstract void drawContactPoint(Vector3f PointOnB, Vector3f normalOnB, float distance, int lifeTime, Vector3f color);
 
-	public abstract int getDebugMode();
+    public abstract void reportErrorWarning(String warningString);
 
-	public void drawAabb(Vector3f from, Vector3f to, Vector3f color) {
-		Vector3f halfExtents = Stack.alloc(to);
-		halfExtents.sub(from);
-		halfExtents.scale(0.5f);
+    public abstract void draw3dText(Vector3f location, String textString);
 
-		Vector3f center = Stack.alloc(to);
-		center.add(from);
-		center.scale(0.5f);
+    public abstract void setDebugMode(int debugMode);
 
-		int i, j;
+    public abstract int getDebugMode();
 
-		Vector3f edgecoord = Stack.alloc(Vector3f.class);
-		edgecoord.set(1f, 1f, 1f);
-		Vector3f pa = Stack.alloc(Vector3f.class), pb = Stack.alloc(Vector3f.class);
-		for (i = 0; i < 4; i++) {
-			for (j = 0; j < 3; j++) {
-				pa.set(edgecoord.x * halfExtents.x, edgecoord.y * halfExtents.y, edgecoord.z * halfExtents.z);
-				pa.add(center);
+    public void drawAabb(Vector3f from, Vector3f to, Vector3f color) {
+        Vector3f halfExtents = new Vector3f(to);
+        halfExtents.sub(from);
+        halfExtents.scale(0.5f);
 
-				int othercoord = j % 3;
+        Vector3f center = new Vector3f(to);
+        center.add(from);
+        center.scale(0.5f);
 
-				VectorUtil.mulCoord(edgecoord, othercoord, -1f);
-				pb.set(edgecoord.x * halfExtents.x, edgecoord.y * halfExtents.y, edgecoord.z * halfExtents.z);
-				pb.add(center);
+        int i, j;
 
-				drawLine(pa, pb, color);
-			}
-			edgecoord.set(-1f, -1f, -1f);
-			if (i < 3) {
-				VectorUtil.mulCoord(edgecoord, i, -1f);
-			}
-		}
-	}
+        Vector3f edgecoord = new Vector3f();
+        edgecoord.set(1f, 1f, 1f);
+        Vector3f pa = new Vector3f(), pb = new Vector3f();
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < 3; j++) {
+                pa.set(edgecoord.x * halfExtents.x, edgecoord.y * halfExtents.y, edgecoord.z * halfExtents.z);
+                pa.add(center);
+
+                int othercoord = j % 3;
+
+                VectorUtil.mulCoord(edgecoord, othercoord, -1f);
+                pb.set(edgecoord.x * halfExtents.x, edgecoord.y * halfExtents.y, edgecoord.z * halfExtents.z);
+                pb.add(center);
+
+                drawLine(pa, pb, color);
+            }
+            edgecoord.set(-1f, -1f, -1f);
+            if (i < 3) {
+                VectorUtil.mulCoord(edgecoord, i, -1f);
+            }
+        }
+    }
 }

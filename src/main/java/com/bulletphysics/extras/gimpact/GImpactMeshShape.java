@@ -34,209 +34,207 @@ import com.bulletphysics.collision.shapes.TriangleCallback;
 import com.bulletphysics.extras.gimpact.BoxCollision.AABB;
 import com.bulletphysics.linearmath.Transform;
 import com.bulletphysics.util.ObjectArrayList;
-import cz.advel.stack.Stack;
 
 import javax.vecmath.Vector3f;
 
 /**
- *
  * @author jezek2
  */
 public class GImpactMeshShape extends GImpactShapeInterface {
-	
-	protected ObjectArrayList<GImpactMeshShapePart> mesh_parts = new ObjectArrayList<GImpactMeshShapePart>();
 
-	public GImpactMeshShape(StridingMeshInterface meshInterface) {
-		buildMeshParts(meshInterface);
-	}
-	
-	public int getMeshPartCount() {
-		return mesh_parts.size();
-	}
+    protected ObjectArrayList<GImpactMeshShapePart> mesh_parts = new ObjectArrayList<GImpactMeshShapePart>();
 
-	public GImpactMeshShapePart getMeshPart(int index) {
-		return mesh_parts.getQuick(index);
-	}
+    public GImpactMeshShape(StridingMeshInterface meshInterface) {
+        buildMeshParts(meshInterface);
+    }
 
-	@Override
-	public void setLocalScaling(Vector3f scaling) {
-		localScaling.set(scaling);
+    public int getMeshPartCount() {
+        return mesh_parts.size();
+    }
 
-		int i = mesh_parts.size();
-		while ((i--) != 0) {
-			GImpactMeshShapePart part = mesh_parts.getQuick(i);
-			part.setLocalScaling(scaling);
-		}
+    public GImpactMeshShapePart getMeshPart(int index) {
+        return mesh_parts.getQuick(index);
+    }
 
-		needs_update = true;
-	}
+    @Override
+    public void setLocalScaling(Vector3f scaling) {
+        localScaling.set(scaling);
 
-	@Override
-	public void setMargin(float margin) {
-		collisionMargin = margin;
+        int i = mesh_parts.size();
+        while ((i--) != 0) {
+            GImpactMeshShapePart part = mesh_parts.getQuick(i);
+            part.setLocalScaling(scaling);
+        }
 
-		int i = mesh_parts.size();
-		while ((i--) != 0) {
-			GImpactMeshShapePart part = mesh_parts.getQuick(i);
-			part.setMargin(margin);
-		}
+        needs_update = true;
+    }
 
-		needs_update = true;
-	}
+    @Override
+    public void setMargin(float margin) {
+        collisionMargin = margin;
 
-	@Override
-	public void postUpdate() {
-		int i = mesh_parts.size();
-		while ((i--) != 0) {
-			GImpactMeshShapePart part = mesh_parts.getQuick(i);
-			part.postUpdate();
-		}
+        int i = mesh_parts.size();
+        while ((i--) != 0) {
+            GImpactMeshShapePart part = mesh_parts.getQuick(i);
+            part.setMargin(margin);
+        }
 
-		needs_update = true;
-	}
+        needs_update = true;
+    }
 
-	@Override
-	public void calculateLocalInertia(float mass, Vector3f inertia) {
-		//#ifdef CALC_EXACT_INERTIA
-		inertia.set(0f, 0f, 0f);
+    @Override
+    public void postUpdate() {
+        int i = mesh_parts.size();
+        while ((i--) != 0) {
+            GImpactMeshShapePart part = mesh_parts.getQuick(i);
+            part.postUpdate();
+        }
 
-		int i = getMeshPartCount();
-		float partmass = mass / (float) i;
+        needs_update = true;
+    }
 
-		Vector3f partinertia = Stack.alloc(Vector3f.class);
+    @Override
+    public void calculateLocalInertia(float mass, Vector3f inertia) {
+        //#ifdef CALC_EXACT_INERTIA
+        inertia.set(0f, 0f, 0f);
 
-		while ((i--) != 0) {
-			getMeshPart(i).calculateLocalInertia(partmass, partinertia);
-			inertia.add(partinertia);
-		}
+        int i = getMeshPartCount();
+        float partmass = mass / (float) i;
 
-		////#else
-		//
-		//// Calc box inertia
-		//
-		//btScalar lx= m_localAABB.m_max[0] - m_localAABB.m_min[0];
-		//btScalar ly= m_localAABB.m_max[1] - m_localAABB.m_min[1];
-		//btScalar lz= m_localAABB.m_max[2] - m_localAABB.m_min[2];
-		//const btScalar x2 = lx*lx;
-		//const btScalar y2 = ly*ly;
-		//const btScalar z2 = lz*lz;
-		//const btScalar scaledmass = mass * btScalar(0.08333333);
-		//
-		//inertia = scaledmass * (btVector3(y2+z2,x2+z2,x2+y2));
-		////#endif
-	}
-	
-	@Override
-	PrimitiveManagerBase getPrimitiveManager() {
-		assert (false);
-		return null;
-	}
+        Vector3f partinertia = new Vector3f();
 
-	@Override
-	public int getNumChildShapes() {
-		assert (false);
-		return 0;
-	}
+        while ((i--) != 0) {
+            getMeshPart(i).calculateLocalInertia(partmass, partinertia);
+            inertia.add(partinertia);
+        }
 
-	@Override
-	public boolean childrenHasTransform() {
-		assert (false);
-		return false;
-	}
+        ////#else
+        //
+        //// Calc box inertia
+        //
+        //btScalar lx= m_localAABB.m_max[0] - m_localAABB.m_min[0];
+        //btScalar ly= m_localAABB.m_max[1] - m_localAABB.m_min[1];
+        //btScalar lz= m_localAABB.m_max[2] - m_localAABB.m_min[2];
+        //const btScalar x2 = lx*lx;
+        //const btScalar y2 = ly*ly;
+        //const btScalar z2 = lz*lz;
+        //const btScalar scaledmass = mass * btScalar(0.08333333);
+        //
+        //inertia = scaledmass * (btVector3(y2+z2,x2+z2,x2+y2));
+        ////#endif
+    }
 
-	@Override
-	public boolean needsRetrieveTriangles() {
-		assert (false);
-		return false;
-	}
+    @Override
+    PrimitiveManagerBase getPrimitiveManager() {
+        assert (false);
+        return null;
+    }
 
-	@Override
-	public boolean needsRetrieveTetrahedrons() {
-		assert (false);
-		return false;
-	}
+    @Override
+    public int getNumChildShapes() {
+        assert (false);
+        return 0;
+    }
 
-	@Override
-	public void getBulletTriangle(int prim_index, TriangleShapeEx triangle) {
-		assert (false);
-	}
+    @Override
+    public boolean childrenHasTransform() {
+        assert (false);
+        return false;
+    }
 
-	@Override
-	void getBulletTetrahedron(int prim_index, TetrahedronShapeEx tetrahedron) {
-		assert (false);
-	}
+    @Override
+    public boolean needsRetrieveTriangles() {
+        assert (false);
+        return false;
+    }
 
-	@Override
-	public void lockChildShapes() {
-		assert (false);
-	}
+    @Override
+    public boolean needsRetrieveTetrahedrons() {
+        assert (false);
+        return false;
+    }
 
-	@Override
-	public void unlockChildShapes() {
-		assert (false);
-	}
+    @Override
+    public void getBulletTriangle(int prim_index, TriangleShapeEx triangle) {
+        assert (false);
+    }
 
-	@Override
-	public void getChildAabb(int child_index, Transform t, Vector3f aabbMin, Vector3f aabbMax) {
-		assert (false);
-	}
+    @Override
+    void getBulletTetrahedron(int prim_index, TetrahedronShapeEx tetrahedron) {
+        assert (false);
+    }
 
-	@Override
-	public CollisionShape getChildShape(int index) {
-		assert (false);
-		return null;
-	}
+    @Override
+    public void lockChildShapes() {
+        assert (false);
+    }
 
-	@Override
-	public Transform getChildTransform(int index) {
-		assert (false);
-		return null;
-	}
+    @Override
+    public void unlockChildShapes() {
+        assert (false);
+    }
 
-	@Override
-	public void setChildTransform(int index, Transform transform) {
-		assert (false);
-	}
+    @Override
+    public void getChildAabb(int child_index, Transform t, Vector3f aabbMin, Vector3f aabbMax) {
+        assert (false);
+    }
 
-	@Override
-	ShapeType getGImpactShapeType() {
-		return ShapeType.TRIMESH_SHAPE;
-	}
+    @Override
+    public CollisionShape getChildShape(int index) {
+        assert (false);
+        return null;
+    }
 
-	@Override
-	public String getName() {
-		return "GImpactMesh";
-	}
+    @Override
+    public Transform getChildTransform(int index) {
+        assert (false);
+        return null;
+    }
 
-	@Override
-	public void rayTest(Vector3f rayFrom, Vector3f rayTo, RayResultCallback resultCallback) {
-	}
+    @Override
+    public void setChildTransform(int index, Transform transform) {
+        assert (false);
+    }
 
-	@Override
-	public void processAllTriangles(TriangleCallback callback, Vector3f aabbMin, Vector3f aabbMax) {
-		int i = mesh_parts.size();
-		while ((i--) != 0) {
-			mesh_parts.getQuick(i).processAllTriangles(callback, aabbMin, aabbMax);
-		}
-	}
-	
-	protected void buildMeshParts(StridingMeshInterface meshInterface) {
-		for (int i=0; i<meshInterface.getNumSubParts(); i++) {
-			GImpactMeshShapePart newpart = new GImpactMeshShapePart(meshInterface, i);
-			mesh_parts.add(newpart);
-		}
-	}
+    @Override
+    ShapeType getGImpactShapeType() {
+        return ShapeType.TRIMESH_SHAPE;
+    }
 
-	@Override
-	protected void calcLocalAABB() {
-		AABB tmpAABB = Stack.alloc(AABB.class);
+    @Override
+    public String getName() {
+        return "GImpactMesh";
+    }
 
-		localAABB.invalidate();
-		int i = mesh_parts.size();
-		while ((i--) != 0) {
-			mesh_parts.getQuick(i).updateBound();
-			localAABB.merge(mesh_parts.getQuick(i).getLocalBox(tmpAABB));
-		}
-	}
+    @Override
+    public void rayTest(Vector3f rayFrom, Vector3f rayTo, RayResultCallback resultCallback) {
+    }
+
+    @Override
+    public void processAllTriangles(TriangleCallback callback, Vector3f aabbMin, Vector3f aabbMax) {
+        int i = mesh_parts.size();
+        while ((i--) != 0) {
+            mesh_parts.getQuick(i).processAllTriangles(callback, aabbMin, aabbMax);
+        }
+    }
+
+    protected void buildMeshParts(StridingMeshInterface meshInterface) {
+        for (int i = 0; i < meshInterface.getNumSubParts(); i++) {
+            GImpactMeshShapePart newpart = new GImpactMeshShapePart(meshInterface, i);
+            mesh_parts.add(newpart);
+        }
+    }
+
+    @Override
+    protected void calcLocalAABB() {
+        AABB tmpAABB = new AABB();
+
+        localAABB.invalidate();
+        int i = mesh_parts.size();
+        while ((i--) != 0) {
+            mesh_parts.getQuick(i).updateBound();
+            localAABB.merge(mesh_parts.getQuick(i).getLocalBox(tmpAABB));
+        }
+    }
 
 }

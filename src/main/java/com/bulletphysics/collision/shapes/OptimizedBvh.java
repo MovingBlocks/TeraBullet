@@ -27,7 +27,6 @@ import com.bulletphysics.linearmath.AabbUtil2;
 import com.bulletphysics.linearmath.MiscUtil;
 import com.bulletphysics.linearmath.VectorUtil;
 import com.bulletphysics.util.ObjectArrayList;
-import cz.advel.stack.Stack;
 
 import javax.vecmath.Vector3f;
 import java.io.Serializable;
@@ -36,333 +35,325 @@ import java.io.Serializable;
 
 /**
  * OptimizedBvh store an AABB tree that can be quickly traversed on CPU (and SPU, GPU in future).
- * 
+ *
  * @author jezek2
  */
 public class OptimizedBvh implements Serializable {
 
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
 
-	//protected final BulletStack stack = BulletStack.get();
-	
-	private static final boolean DEBUG_TREE_BUILDING = false;
-	private static int gStackDepth = 0;
-	private static int gMaxStackDepth = 0;
-	
-	private static int maxIterations = 0;
-	
-	// Note: currently we have 16 bytes per quantized node
-	public static final int MAX_SUBTREE_SIZE_IN_BYTES = 2048;
+    //protected final BulletStack stack = BulletStack.get();
 
-	// 10 gives the potential for 1024 parts, with at most 2^21 (2097152) (minus one
-	// actually) triangles each (since the sign bit is reserved
-	public static final int MAX_NUM_PARTS_IN_BITS = 10;
+    private static final boolean DEBUG_TREE_BUILDING = false;
+    private static int gStackDepth = 0;
+    private static int gMaxStackDepth = 0;
 
-	////////////////////////////////////////////////////////////////////////////
+    private static int maxIterations = 0;
 
-	private final ObjectArrayList<OptimizedBvhNode> leafNodes = new ObjectArrayList<OptimizedBvhNode>();
-	private final ObjectArrayList<OptimizedBvhNode> contiguousNodes = new ObjectArrayList<OptimizedBvhNode>();
+    // Note: currently we have 16 bytes per quantized node
+    public static final int MAX_SUBTREE_SIZE_IN_BYTES = 2048;
 
-	private QuantizedBvhNodes quantizedLeafNodes = new QuantizedBvhNodes();
-	private QuantizedBvhNodes quantizedContiguousNodes = new QuantizedBvhNodes();
-	
-	private int curNodeIndex;
+    // 10 gives the potential for 1024 parts, with at most 2^21 (2097152) (minus one
+    // actually) triangles each (since the sign bit is reserved
+    public static final int MAX_NUM_PARTS_IN_BITS = 10;
 
-	// quantization data
-	private boolean useQuantization;
-	private final Vector3f bvhAabbMin = new Vector3f();
-	private final Vector3f bvhAabbMax = new Vector3f();
-	private final Vector3f bvhQuantization = new Vector3f();
-	
-	protected TraversalMode traversalMode = TraversalMode.STACKLESS;
-	protected final ObjectArrayList<BvhSubtreeInfo> SubtreeHeaders = new ObjectArrayList<BvhSubtreeInfo>();
-	// This is only used for serialization so we don't have to add serialization directly to btAlignedObjectArray
-	protected int subtreeHeaderCount;
+    ////////////////////////////////////////////////////////////////////////////
 
-	// two versions, one for quantized and normal nodes. This allows code-reuse while maintaining readability (no template/macro!)
-	// this might be refactored into a virtual, it is usually not calculated at run-time
-	public void setInternalNodeAabbMin(int nodeIndex, Vector3f aabbMin) {
-		if (useQuantization) {
-			quantizedContiguousNodes.setQuantizedAabbMin(nodeIndex, quantizeWithClamp(aabbMin));
-		}
-		else {
-			contiguousNodes.getQuick(nodeIndex).aabbMinOrg.set(aabbMin);
-		}
-	}
+    private final ObjectArrayList<OptimizedBvhNode> leafNodes = new ObjectArrayList<OptimizedBvhNode>();
+    private final ObjectArrayList<OptimizedBvhNode> contiguousNodes = new ObjectArrayList<OptimizedBvhNode>();
 
-	public void setInternalNodeAabbMax(int nodeIndex, Vector3f aabbMax) {
-		if (useQuantization) {
-			quantizedContiguousNodes.setQuantizedAabbMax(nodeIndex, quantizeWithClamp(aabbMax));
-		}
-		else {
-			contiguousNodes.getQuick(nodeIndex).aabbMaxOrg.set(aabbMax);
-		}
-	}
-	
-	public Vector3f getAabbMin(int nodeIndex) {
-		if (useQuantization) {
-			Vector3f tmp = new Vector3f();
-			unQuantize(tmp, quantizedLeafNodes.getQuantizedAabbMin(nodeIndex));
-			return tmp;
-		}
+    private QuantizedBvhNodes quantizedLeafNodes = new QuantizedBvhNodes();
+    private QuantizedBvhNodes quantizedContiguousNodes = new QuantizedBvhNodes();
 
-		// non-quantized
-		return leafNodes.getQuick(nodeIndex).aabbMinOrg;
-	}
+    private int curNodeIndex;
 
-	public Vector3f getAabbMax(int nodeIndex) {
-		if (useQuantization) {
-			Vector3f tmp = new Vector3f();
-			unQuantize(tmp, quantizedLeafNodes.getQuantizedAabbMax(nodeIndex));
-			return tmp;
-		}
-		
-		// non-quantized
-		return leafNodes.getQuick(nodeIndex).aabbMaxOrg;
-	}
+    // quantization data
+    private boolean useQuantization;
+    private final Vector3f bvhAabbMin = new Vector3f();
+    private final Vector3f bvhAabbMax = new Vector3f();
+    private final Vector3f bvhQuantization = new Vector3f();
 
-	public void setQuantizationValues(Vector3f aabbMin, Vector3f aabbMax) {
-		setQuantizationValues(aabbMin, aabbMax, 1f);
-	}
-	
-	public void setQuantizationValues(Vector3f aabbMin, Vector3f aabbMax, float quantizationMargin) {
-		// enlarge the AABB to avoid division by zero when initializing the quantization values
-		Vector3f clampValue = Stack.alloc(Vector3f.class);
-		clampValue.set(quantizationMargin,quantizationMargin,quantizationMargin);
-		bvhAabbMin.sub(aabbMin, clampValue);
-		bvhAabbMax.add(aabbMax, clampValue);
-		Vector3f aabbSize = Stack.alloc(Vector3f.class);
-		aabbSize.sub(bvhAabbMax, bvhAabbMin);
-		bvhQuantization.set(65535f, 65535f, 65535f);
-		VectorUtil.div(bvhQuantization, bvhQuantization, aabbSize);
-	}
-	
-	public void setInternalNodeEscapeIndex(int nodeIndex, int escapeIndex) {
-		if (useQuantization) {
-			quantizedContiguousNodes.setEscapeIndexOrTriangleIndex(nodeIndex, -escapeIndex);
-		}
-		else {
-			contiguousNodes.getQuick(nodeIndex).escapeIndex = escapeIndex;
-		}
-	}
+    protected TraversalMode traversalMode = TraversalMode.STACKLESS;
+    protected final ObjectArrayList<BvhSubtreeInfo> SubtreeHeaders = new ObjectArrayList<BvhSubtreeInfo>();
+    // This is only used for serialization so we don't have to add serialization directly to btAlignedObjectArray
+    protected int subtreeHeaderCount;
 
-	public void mergeInternalNodeAabb(int nodeIndex, Vector3f newAabbMin, Vector3f newAabbMax) {
-		if (useQuantization) {
-			long quantizedAabbMin;
-			long quantizedAabbMax;
+    // two versions, one for quantized and normal nodes. This allows code-reuse while maintaining readability (no template/macro!)
+    // this might be refactored into a virtual, it is usually not calculated at run-time
+    public void setInternalNodeAabbMin(int nodeIndex, Vector3f aabbMin) {
+        if (useQuantization) {
+            quantizedContiguousNodes.setQuantizedAabbMin(nodeIndex, quantizeWithClamp(aabbMin));
+        } else {
+            contiguousNodes.getQuick(nodeIndex).aabbMinOrg.set(aabbMin);
+        }
+    }
 
-			quantizedAabbMin = quantizeWithClamp(newAabbMin);
-			quantizedAabbMax = quantizeWithClamp(newAabbMax);
-			for (int i = 0; i < 3; i++) {
-				if (quantizedContiguousNodes.getQuantizedAabbMin(nodeIndex, i) > QuantizedBvhNodes.getCoord(quantizedAabbMin, i)) {
-					quantizedContiguousNodes.setQuantizedAabbMin(nodeIndex, i, QuantizedBvhNodes.getCoord(quantizedAabbMin, i));
-				}
+    public void setInternalNodeAabbMax(int nodeIndex, Vector3f aabbMax) {
+        if (useQuantization) {
+            quantizedContiguousNodes.setQuantizedAabbMax(nodeIndex, quantizeWithClamp(aabbMax));
+        } else {
+            contiguousNodes.getQuick(nodeIndex).aabbMaxOrg.set(aabbMax);
+        }
+    }
 
-				if (quantizedContiguousNodes.getQuantizedAabbMax(nodeIndex, i) < QuantizedBvhNodes.getCoord(quantizedAabbMax, i)) {
-					quantizedContiguousNodes.setQuantizedAabbMax(nodeIndex, i, QuantizedBvhNodes.getCoord(quantizedAabbMax, i));
-				}
-			}
-		}
-		else {
-			// non-quantized
-			VectorUtil.setMin(contiguousNodes.getQuick(nodeIndex).aabbMinOrg, newAabbMin);
-			VectorUtil.setMax(contiguousNodes.getQuick(nodeIndex).aabbMaxOrg, newAabbMax);
-		}
-	}
-	
-	public void swapLeafNodes(int i, int splitIndex) {
-		if (useQuantization) {
-			quantizedLeafNodes.swap(i, splitIndex);
-		}
-		else {
-			// JAVA NOTE: changing reference instead of copy
-			OptimizedBvhNode tmp = leafNodes.getQuick(i);
-			leafNodes.setQuick(i, leafNodes.getQuick(splitIndex));
-			leafNodes.setQuick(splitIndex, tmp);
-		}
-	}
+    public Vector3f getAabbMin(int nodeIndex) {
+        if (useQuantization) {
+            Vector3f tmp = new Vector3f();
+            unQuantize(tmp, quantizedLeafNodes.getQuantizedAabbMin(nodeIndex));
+            return tmp;
+        }
 
-	public void assignInternalNodeFromLeafNode(int internalNode, int leafNodeIndex) {
-		if (useQuantization) {
-			quantizedContiguousNodes.set(internalNode, quantizedLeafNodes, leafNodeIndex);
-		}
-		else {
-			contiguousNodes.getQuick(internalNode).set(leafNodes.getQuick(leafNodeIndex));
-		}
-	}
+        // non-quantized
+        return leafNodes.getQuick(nodeIndex).aabbMinOrg;
+    }
 
-	private static class NodeTriangleCallback extends InternalTriangleIndexCallback {
-		public ObjectArrayList<OptimizedBvhNode> triangleNodes;
-		
-		public NodeTriangleCallback(ObjectArrayList<OptimizedBvhNode> triangleNodes) {
-			this.triangleNodes = triangleNodes;
-		}
+    public Vector3f getAabbMax(int nodeIndex) {
+        if (useQuantization) {
+            Vector3f tmp = new Vector3f();
+            unQuantize(tmp, quantizedLeafNodes.getQuantizedAabbMax(nodeIndex));
+            return tmp;
+        }
 
-		private final Vector3f aabbMin = new Vector3f(), aabbMax = new Vector3f();
-		
-		public void internalProcessTriangleIndex(Vector3f[] triangle, int partId, int triangleIndex) {
-			OptimizedBvhNode node = new OptimizedBvhNode();
-			aabbMin.set(1e30f, 1e30f, 1e30f);
-			aabbMax.set(-1e30f, -1e30f, -1e30f);
-			VectorUtil.setMin(aabbMin, triangle[0]);
-			VectorUtil.setMax(aabbMax, triangle[0]);
-			VectorUtil.setMin(aabbMin, triangle[1]);
-			VectorUtil.setMax(aabbMax, triangle[1]);
-			VectorUtil.setMin(aabbMin, triangle[2]);
-			VectorUtil.setMax(aabbMax, triangle[2]);
+        // non-quantized
+        return leafNodes.getQuick(nodeIndex).aabbMaxOrg;
+    }
 
-			// with quantization?
-			node.aabbMinOrg.set(aabbMin);
-			node.aabbMaxOrg.set(aabbMax);
+    public void setQuantizationValues(Vector3f aabbMin, Vector3f aabbMax) {
+        setQuantizationValues(aabbMin, aabbMax, 1f);
+    }
 
-			node.escapeIndex = -1;
+    public void setQuantizationValues(Vector3f aabbMin, Vector3f aabbMax, float quantizationMargin) {
+        // enlarge the AABB to avoid division by zero when initializing the quantization values
+        Vector3f clampValue = new Vector3f();
+        clampValue.set(quantizationMargin, quantizationMargin, quantizationMargin);
+        bvhAabbMin.sub(aabbMin, clampValue);
+        bvhAabbMax.add(aabbMax, clampValue);
+        Vector3f aabbSize = new Vector3f();
+        aabbSize.sub(bvhAabbMax, bvhAabbMin);
+        bvhQuantization.set(65535f, 65535f, 65535f);
+        VectorUtil.div(bvhQuantization, bvhQuantization, aabbSize);
+    }
 
-			// for child nodes
-			node.subPart = partId;
-			node.triangleIndex = triangleIndex;
-			triangleNodes.add(node);
-		}
-	}
+    public void setInternalNodeEscapeIndex(int nodeIndex, int escapeIndex) {
+        if (useQuantization) {
+            quantizedContiguousNodes.setEscapeIndexOrTriangleIndex(nodeIndex, -escapeIndex);
+        } else {
+            contiguousNodes.getQuick(nodeIndex).escapeIndex = escapeIndex;
+        }
+    }
 
-	private static class QuantizedNodeTriangleCallback extends InternalTriangleIndexCallback {
-		//protected final BulletStack stack = BulletStack.get();
-		
-		public QuantizedBvhNodes triangleNodes;
-		public OptimizedBvh optimizedTree; // for quantization
+    public void mergeInternalNodeAabb(int nodeIndex, Vector3f newAabbMin, Vector3f newAabbMax) {
+        if (useQuantization) {
+            long quantizedAabbMin;
+            long quantizedAabbMax;
 
-		public QuantizedNodeTriangleCallback(QuantizedBvhNodes triangleNodes, OptimizedBvh tree) {
-			this.triangleNodes = triangleNodes;
-			this.optimizedTree = tree;
-		}
-		
-		public void internalProcessTriangleIndex(Vector3f[] triangle, int partId, int triangleIndex) {
-			// The partId and triangle index must fit in the same (positive) integer
-			assert (partId < (1 << MAX_NUM_PARTS_IN_BITS));
-			assert (triangleIndex < (1 << (31 - MAX_NUM_PARTS_IN_BITS)));
-			// negative indices are reserved for escapeIndex
-			assert (triangleIndex >= 0);
+            quantizedAabbMin = quantizeWithClamp(newAabbMin);
+            quantizedAabbMax = quantizeWithClamp(newAabbMax);
+            for (int i = 0; i < 3; i++) {
+                if (quantizedContiguousNodes.getQuantizedAabbMin(nodeIndex, i) > QuantizedBvhNodes.getCoord(quantizedAabbMin, i)) {
+                    quantizedContiguousNodes.setQuantizedAabbMin(nodeIndex, i, QuantizedBvhNodes.getCoord(quantizedAabbMin, i));
+                }
 
-			int nodeId = triangleNodes.add();
-			Vector3f aabbMin = Stack.alloc(Vector3f.class), aabbMax = Stack.alloc(Vector3f.class);
-			aabbMin.set(1e30f, 1e30f, 1e30f);
-			aabbMax.set(-1e30f, -1e30f, -1e30f);
-			VectorUtil.setMin(aabbMin, triangle[0]);
-			VectorUtil.setMax(aabbMax, triangle[0]);
-			VectorUtil.setMin(aabbMin, triangle[1]);
-			VectorUtil.setMax(aabbMax, triangle[1]);
-			VectorUtil.setMin(aabbMin, triangle[2]);
-			VectorUtil.setMax(aabbMax, triangle[2]);
+                if (quantizedContiguousNodes.getQuantizedAabbMax(nodeIndex, i) < QuantizedBvhNodes.getCoord(quantizedAabbMax, i)) {
+                    quantizedContiguousNodes.setQuantizedAabbMax(nodeIndex, i, QuantizedBvhNodes.getCoord(quantizedAabbMax, i));
+                }
+            }
+        } else {
+            // non-quantized
+            VectorUtil.setMin(contiguousNodes.getQuick(nodeIndex).aabbMinOrg, newAabbMin);
+            VectorUtil.setMax(contiguousNodes.getQuick(nodeIndex).aabbMaxOrg, newAabbMax);
+        }
+    }
 
-			// PCK: add these checks for zero dimensions of aabb
-			final float MIN_AABB_DIMENSION = 0.002f;
-			final float MIN_AABB_HALF_DIMENSION = 0.001f;
-			if (aabbMax.x - aabbMin.x < MIN_AABB_DIMENSION) {
-				aabbMax.x = (aabbMax.x + MIN_AABB_HALF_DIMENSION);
-				aabbMin.x = (aabbMin.x - MIN_AABB_HALF_DIMENSION);
-			}
-			if (aabbMax.y - aabbMin.y < MIN_AABB_DIMENSION) {
-				aabbMax.y = (aabbMax.y + MIN_AABB_HALF_DIMENSION);
-				aabbMin.y = (aabbMin.y - MIN_AABB_HALF_DIMENSION);
-			}
-			if (aabbMax.z - aabbMin.z < MIN_AABB_DIMENSION) {
-				aabbMax.z = (aabbMax.z + MIN_AABB_HALF_DIMENSION);
-				aabbMin.z = (aabbMin.z - MIN_AABB_HALF_DIMENSION);
-			}
+    public void swapLeafNodes(int i, int splitIndex) {
+        if (useQuantization) {
+            quantizedLeafNodes.swap(i, splitIndex);
+        } else {
+            // JAVA NOTE: changing reference instead of copy
+            OptimizedBvhNode tmp = leafNodes.getQuick(i);
+            leafNodes.setQuick(i, leafNodes.getQuick(splitIndex));
+            leafNodes.setQuick(splitIndex, tmp);
+        }
+    }
 
-			triangleNodes.setQuantizedAabbMin(nodeId, optimizedTree.quantizeWithClamp(aabbMin));
-			triangleNodes.setQuantizedAabbMax(nodeId, optimizedTree.quantizeWithClamp(aabbMax));
+    public void assignInternalNodeFromLeafNode(int internalNode, int leafNodeIndex) {
+        if (useQuantization) {
+            quantizedContiguousNodes.set(internalNode, quantizedLeafNodes, leafNodeIndex);
+        } else {
+            contiguousNodes.getQuick(internalNode).set(leafNodes.getQuick(leafNodeIndex));
+        }
+    }
 
-			triangleNodes.setEscapeIndexOrTriangleIndex(nodeId, (partId << (31 - MAX_NUM_PARTS_IN_BITS)) | triangleIndex);
-		}
-	}
-	
-	public void build(StridingMeshInterface triangles, boolean useQuantizedAabbCompression, Vector3f _aabbMin, Vector3f _aabbMax) {
-		this.useQuantization = useQuantizedAabbCompression;
+    private static class NodeTriangleCallback extends InternalTriangleIndexCallback {
+        public ObjectArrayList<OptimizedBvhNode> triangleNodes;
 
-		// NodeArray	triangleNodes;
+        public NodeTriangleCallback(ObjectArrayList<OptimizedBvhNode> triangleNodes) {
+            this.triangleNodes = triangleNodes;
+        }
 
-		int numLeafNodes = 0;
+        private final Vector3f aabbMin = new Vector3f(), aabbMax = new Vector3f();
 
-		if (useQuantization) {
-			// initialize quantization values
-			setQuantizationValues(_aabbMin, _aabbMax);
+        public void internalProcessTriangleIndex(Vector3f[] triangle, int partId, int triangleIndex) {
+            OptimizedBvhNode node = new OptimizedBvhNode();
+            aabbMin.set(1e30f, 1e30f, 1e30f);
+            aabbMax.set(-1e30f, -1e30f, -1e30f);
+            VectorUtil.setMin(aabbMin, triangle[0]);
+            VectorUtil.setMax(aabbMax, triangle[0]);
+            VectorUtil.setMin(aabbMin, triangle[1]);
+            VectorUtil.setMax(aabbMax, triangle[1]);
+            VectorUtil.setMin(aabbMin, triangle[2]);
+            VectorUtil.setMax(aabbMax, triangle[2]);
 
-			QuantizedNodeTriangleCallback callback = new QuantizedNodeTriangleCallback(quantizedLeafNodes, this);
+            // with quantization?
+            node.aabbMinOrg.set(aabbMin);
+            node.aabbMaxOrg.set(aabbMax);
 
-			triangles.internalProcessAllTriangles(callback, bvhAabbMin, bvhAabbMax);
+            node.escapeIndex = -1;
 
-			// now we have an array of leafnodes in m_leafNodes
-			numLeafNodes = quantizedLeafNodes.size();
+            // for child nodes
+            node.subPart = partId;
+            node.triangleIndex = triangleIndex;
+            triangleNodes.add(node);
+        }
+    }
 
-			quantizedContiguousNodes.resize(2 * numLeafNodes);
-		}
-		else {
-			NodeTriangleCallback callback = new NodeTriangleCallback(leafNodes);
+    private static class QuantizedNodeTriangleCallback extends InternalTriangleIndexCallback {
+        //protected final BulletStack stack = BulletStack.get();
 
-			Vector3f aabbMin = Stack.alloc(Vector3f.class);
-			aabbMin.set(-1e30f, -1e30f, -1e30f);
-			Vector3f aabbMax = Stack.alloc(Vector3f.class);
-			aabbMax.set(1e30f, 1e30f, 1e30f);
+        public QuantizedBvhNodes triangleNodes;
+        public OptimizedBvh optimizedTree; // for quantization
 
-			triangles.internalProcessAllTriangles(callback, aabbMin, aabbMax);
+        public QuantizedNodeTriangleCallback(QuantizedBvhNodes triangleNodes, OptimizedBvh tree) {
+            this.triangleNodes = triangleNodes;
+            this.optimizedTree = tree;
+        }
 
-			// now we have an array of leafnodes in m_leafNodes
-			numLeafNodes = leafNodes.size();
+        public void internalProcessTriangleIndex(Vector3f[] triangle, int partId, int triangleIndex) {
+            // The partId and triangle index must fit in the same (positive) integer
+            assert (partId < (1 << MAX_NUM_PARTS_IN_BITS));
+            assert (triangleIndex < (1 << (31 - MAX_NUM_PARTS_IN_BITS)));
+            // negative indices are reserved for escapeIndex
+            assert (triangleIndex >= 0);
 
-			// TODO: check
-			//contiguousNodes.resize(2*numLeafNodes);
-			MiscUtil.resize(contiguousNodes, 2 * numLeafNodes, OptimizedBvhNode.class);
-		}
+            int nodeId = triangleNodes.add();
+            Vector3f aabbMin = new Vector3f(), aabbMax = new Vector3f();
+            aabbMin.set(1e30f, 1e30f, 1e30f);
+            aabbMax.set(-1e30f, -1e30f, -1e30f);
+            VectorUtil.setMin(aabbMin, triangle[0]);
+            VectorUtil.setMax(aabbMax, triangle[0]);
+            VectorUtil.setMin(aabbMin, triangle[1]);
+            VectorUtil.setMax(aabbMax, triangle[1]);
+            VectorUtil.setMin(aabbMin, triangle[2]);
+            VectorUtil.setMax(aabbMax, triangle[2]);
 
-		curNodeIndex = 0;
+            // PCK: add these checks for zero dimensions of aabb
+            final float MIN_AABB_DIMENSION = 0.002f;
+            final float MIN_AABB_HALF_DIMENSION = 0.001f;
+            if (aabbMax.x - aabbMin.x < MIN_AABB_DIMENSION) {
+                aabbMax.x = (aabbMax.x + MIN_AABB_HALF_DIMENSION);
+                aabbMin.x = (aabbMin.x - MIN_AABB_HALF_DIMENSION);
+            }
+            if (aabbMax.y - aabbMin.y < MIN_AABB_DIMENSION) {
+                aabbMax.y = (aabbMax.y + MIN_AABB_HALF_DIMENSION);
+                aabbMin.y = (aabbMin.y - MIN_AABB_HALF_DIMENSION);
+            }
+            if (aabbMax.z - aabbMin.z < MIN_AABB_DIMENSION) {
+                aabbMax.z = (aabbMax.z + MIN_AABB_HALF_DIMENSION);
+                aabbMin.z = (aabbMin.z - MIN_AABB_HALF_DIMENSION);
+            }
 
-		buildTree(0, numLeafNodes);
+            triangleNodes.setQuantizedAabbMin(nodeId, optimizedTree.quantizeWithClamp(aabbMin));
+            triangleNodes.setQuantizedAabbMax(nodeId, optimizedTree.quantizeWithClamp(aabbMax));
 
-		//  if the entire tree is small then subtree size, we need to create a header info for the tree
-		if (useQuantization && SubtreeHeaders.size() == 0) {
-			BvhSubtreeInfo subtree = new BvhSubtreeInfo();
-			SubtreeHeaders.add(subtree);
+            triangleNodes.setEscapeIndexOrTriangleIndex(nodeId, (partId << (31 - MAX_NUM_PARTS_IN_BITS)) | triangleIndex);
+        }
+    }
 
-			subtree.setAabbFromQuantizeNode(quantizedContiguousNodes, 0);
-			subtree.rootNodeIndex = 0;
-			subtree.subtreeSize = quantizedContiguousNodes.isLeafNode(0) ? 1 : quantizedContiguousNodes.getEscapeIndex(0);
-		}
+    public void build(StridingMeshInterface triangles, boolean useQuantizedAabbCompression, Vector3f _aabbMin, Vector3f _aabbMax) {
+        this.useQuantization = useQuantizedAabbCompression;
 
-		// PCK: update the copy of the size
-		subtreeHeaderCount = SubtreeHeaders.size();
+        // NodeArray	triangleNodes;
 
-		// PCK: clear m_quantizedLeafNodes and m_leafNodes, they are temporary
-		quantizedLeafNodes.clear();
-		leafNodes.clear();
-	}
-	
-	public void refit(StridingMeshInterface meshInterface) {
-		if (useQuantization) {
-			// calculate new aabb
-			Vector3f aabbMin = Stack.alloc(Vector3f.class), aabbMax = Stack.alloc(Vector3f.class);
-			meshInterface.calculateAabbBruteForce(aabbMin, aabbMax);
+        int numLeafNodes = 0;
 
-			setQuantizationValues(aabbMin, aabbMax);
+        if (useQuantization) {
+            // initialize quantization values
+            setQuantizationValues(_aabbMin, _aabbMax);
 
-			updateBvhNodes(meshInterface, 0, curNodeIndex, 0);
+            QuantizedNodeTriangleCallback callback = new QuantizedNodeTriangleCallback(quantizedLeafNodes, this);
 
-			// now update all subtree headers
+            triangles.internalProcessAllTriangles(callback, bvhAabbMin, bvhAabbMax);
 
-			int i;
-			for (i = 0; i < SubtreeHeaders.size(); i++) {
-				BvhSubtreeInfo subtree = SubtreeHeaders.getQuick(i);
-				subtree.setAabbFromQuantizeNode(quantizedContiguousNodes, subtree.rootNodeIndex);
-			}
+            // now we have an array of leafnodes in m_leafNodes
+            numLeafNodes = quantizedLeafNodes.size();
 
-		}
-		else {
-			// JAVA NOTE: added for testing, it's too slow for practical use
-			build(meshInterface, false, null, null);
-		}
-	}
-	
-	public void refitPartial(StridingMeshInterface meshInterface, Vector3f aabbMin, Vector3f aabbMax) {
-		throw new UnsupportedOperationException();
+            quantizedContiguousNodes.resize(2 * numLeafNodes);
+        } else {
+            NodeTriangleCallback callback = new NodeTriangleCallback(leafNodes);
+
+            Vector3f aabbMin = new Vector3f();
+            aabbMin.set(-1e30f, -1e30f, -1e30f);
+            Vector3f aabbMax = new Vector3f();
+            aabbMax.set(1e30f, 1e30f, 1e30f);
+
+            triangles.internalProcessAllTriangles(callback, aabbMin, aabbMax);
+
+            // now we have an array of leafnodes in m_leafNodes
+            numLeafNodes = leafNodes.size();
+
+            // TODO: check
+            //contiguousNodes.resize(2*numLeafNodes);
+            MiscUtil.resize(contiguousNodes, 2 * numLeafNodes, OptimizedBvhNode.class);
+        }
+
+        curNodeIndex = 0;
+
+        buildTree(0, numLeafNodes);
+
+        //  if the entire tree is small then subtree size, we need to create a header info for the tree
+        if (useQuantization && SubtreeHeaders.size() == 0) {
+            BvhSubtreeInfo subtree = new BvhSubtreeInfo();
+            SubtreeHeaders.add(subtree);
+
+            subtree.setAabbFromQuantizeNode(quantizedContiguousNodes, 0);
+            subtree.rootNodeIndex = 0;
+            subtree.subtreeSize = quantizedContiguousNodes.isLeafNode(0) ? 1 : quantizedContiguousNodes.getEscapeIndex(0);
+        }
+
+        // PCK: update the copy of the size
+        subtreeHeaderCount = SubtreeHeaders.size();
+
+        // PCK: clear m_quantizedLeafNodes and m_leafNodes, they are temporary
+        quantizedLeafNodes.clear();
+        leafNodes.clear();
+    }
+
+    public void refit(StridingMeshInterface meshInterface) {
+        if (useQuantization) {
+            // calculate new aabb
+            Vector3f aabbMin = new Vector3f(), aabbMax = new Vector3f();
+            meshInterface.calculateAabbBruteForce(aabbMin, aabbMax);
+
+            setQuantizationValues(aabbMin, aabbMax);
+
+            updateBvhNodes(meshInterface, 0, curNodeIndex, 0);
+
+            // now update all subtree headers
+
+            int i;
+            for (i = 0; i < SubtreeHeaders.size(); i++) {
+                BvhSubtreeInfo subtree = SubtreeHeaders.getQuick(i);
+                subtree.setAabbFromQuantizeNode(quantizedContiguousNodes, subtree.rootNodeIndex);
+            }
+
+        } else {
+            // JAVA NOTE: added for testing, it's too slow for practical use
+            build(meshInterface, false, null, null);
+        }
+    }
+
+    public void refitPartial(StridingMeshInterface meshInterface, Vector3f aabbMin, Vector3f aabbMax) {
+        throw new UnsupportedOperationException();
 //		// incrementally initialize quantization values
 //		assert (useQuantization);
 //
@@ -397,644 +388,636 @@ public class OptimizedBvh implements Serializable {
 //				subtree.setAabbFromQuantizeNode(m_quantizedContiguousNodes[subtree.m_rootNodeIndex]);
 //			}
 //		}
-	}
-	
-	public void updateBvhNodes(StridingMeshInterface meshInterface, int firstNode, int endNode, int index) {
-		assert (useQuantization);
+    }
 
-		int curNodeSubPart = -1;
+    public void updateBvhNodes(StridingMeshInterface meshInterface, int firstNode, int endNode, int index) {
+        assert (useQuantization);
 
-		Vector3f[] triangleVerts/*[3]*/ = new Vector3f[] { Stack.alloc(Vector3f.class), Stack.alloc(Vector3f.class), Stack.alloc(Vector3f.class) };
-		Vector3f aabbMin = Stack.alloc(Vector3f.class), aabbMax = Stack.alloc(Vector3f.class);
-		Vector3f meshScaling = meshInterface.getScaling(Stack.alloc(Vector3f.class));
+        int curNodeSubPart = -1;
 
-		VertexData data = null;
+        Vector3f[] triangleVerts/*[3]*/ = new Vector3f[]{new Vector3f(), new Vector3f(), new Vector3f()};
+        Vector3f aabbMin = new Vector3f(), aabbMax = new Vector3f();
+        Vector3f meshScaling = meshInterface.getScaling(new Vector3f());
 
-		for (int i = endNode - 1; i >= firstNode; i--) {
-			QuantizedBvhNodes curNodes = quantizedContiguousNodes;
-			int curNodeId = i;
+        VertexData data = null;
 
-			if (curNodes.isLeafNode(curNodeId)) {
-				// recalc aabb from triangle data
-				int nodeSubPart = curNodes.getPartId(curNodeId);
-				int nodeTriangleIndex = curNodes.getTriangleIndex(curNodeId);
-				if (nodeSubPart != curNodeSubPart) {
-					if (curNodeSubPart >= 0) {
-						meshInterface.unLockReadOnlyVertexBase(curNodeSubPart);
-					}
-					data = meshInterface.getLockedReadOnlyVertexIndexBase(nodeSubPart);
-				}
-				//triangles->getLockedReadOnlyVertexIndexBase(vertexBase,numVerts,
+        for (int i = endNode - 1; i >= firstNode; i--) {
+            QuantizedBvhNodes curNodes = quantizedContiguousNodes;
+            int curNodeId = i;
 
-				data.getTriangle(nodeTriangleIndex*3, meshScaling, triangleVerts);
+            if (curNodes.isLeafNode(curNodeId)) {
+                // recalc aabb from triangle data
+                int nodeSubPart = curNodes.getPartId(curNodeId);
+                int nodeTriangleIndex = curNodes.getTriangleIndex(curNodeId);
+                if (nodeSubPart != curNodeSubPart) {
+                    if (curNodeSubPart >= 0) {
+                        meshInterface.unLockReadOnlyVertexBase(curNodeSubPart);
+                    }
+                    data = meshInterface.getLockedReadOnlyVertexIndexBase(nodeSubPart);
+                }
+                //triangles->getLockedReadOnlyVertexIndexBase(vertexBase,numVerts,
 
-				aabbMin.set(1e30f, 1e30f, 1e30f);
-				aabbMax.set(-1e30f, -1e30f, -1e30f);
-				VectorUtil.setMin(aabbMin, triangleVerts[0]);
-				VectorUtil.setMax(aabbMax, triangleVerts[0]);
-				VectorUtil.setMin(aabbMin, triangleVerts[1]);
-				VectorUtil.setMax(aabbMax, triangleVerts[1]);
-				VectorUtil.setMin(aabbMin, triangleVerts[2]);
-				VectorUtil.setMax(aabbMax, triangleVerts[2]);
+                data.getTriangle(nodeTriangleIndex * 3, meshScaling, triangleVerts);
 
-				curNodes.setQuantizedAabbMin(curNodeId, quantizeWithClamp(aabbMin));
-				curNodes.setQuantizedAabbMax(curNodeId, quantizeWithClamp(aabbMax));
-			}
-			else {
-				// combine aabb from both children
+                aabbMin.set(1e30f, 1e30f, 1e30f);
+                aabbMax.set(-1e30f, -1e30f, -1e30f);
+                VectorUtil.setMin(aabbMin, triangleVerts[0]);
+                VectorUtil.setMax(aabbMax, triangleVerts[0]);
+                VectorUtil.setMin(aabbMin, triangleVerts[1]);
+                VectorUtil.setMax(aabbMax, triangleVerts[1]);
+                VectorUtil.setMin(aabbMin, triangleVerts[2]);
+                VectorUtil.setMax(aabbMax, triangleVerts[2]);
 
-				//quantizedContiguousNodes
-				int leftChildNodeId = i + 1;
+                curNodes.setQuantizedAabbMin(curNodeId, quantizeWithClamp(aabbMin));
+                curNodes.setQuantizedAabbMax(curNodeId, quantizeWithClamp(aabbMax));
+            } else {
+                // combine aabb from both children
 
-				int rightChildNodeId = quantizedContiguousNodes.isLeafNode(leftChildNodeId) ? i + 2 : i + 1 + quantizedContiguousNodes.getEscapeIndex(leftChildNodeId);
+                //quantizedContiguousNodes
+                int leftChildNodeId = i + 1;
 
-				for (int i2 = 0; i2 < 3; i2++) {
-					curNodes.setQuantizedAabbMin(curNodeId, i2, quantizedContiguousNodes.getQuantizedAabbMin(leftChildNodeId, i2));
-					if (curNodes.getQuantizedAabbMin(curNodeId, i2) > quantizedContiguousNodes.getQuantizedAabbMin(rightChildNodeId, i2)) {
-						curNodes.setQuantizedAabbMin(curNodeId, i2, quantizedContiguousNodes.getQuantizedAabbMin(rightChildNodeId, i2));
-					}
+                int rightChildNodeId = quantizedContiguousNodes.isLeafNode(leftChildNodeId) ? i + 2 : i + 1 + quantizedContiguousNodes.getEscapeIndex(leftChildNodeId);
 
-					curNodes.setQuantizedAabbMax(curNodeId, i2, quantizedContiguousNodes.getQuantizedAabbMax(leftChildNodeId, i2));
-					if (curNodes.getQuantizedAabbMax(curNodeId, i2) < quantizedContiguousNodes.getQuantizedAabbMax(rightChildNodeId, i2)) {
-						curNodes.setQuantizedAabbMax(curNodeId, i2, quantizedContiguousNodes.getQuantizedAabbMax(rightChildNodeId, i2));
-					}
-				}
-			}
-		}
+                for (int i2 = 0; i2 < 3; i2++) {
+                    curNodes.setQuantizedAabbMin(curNodeId, i2, quantizedContiguousNodes.getQuantizedAabbMin(leftChildNodeId, i2));
+                    if (curNodes.getQuantizedAabbMin(curNodeId, i2) > quantizedContiguousNodes.getQuantizedAabbMin(rightChildNodeId, i2)) {
+                        curNodes.setQuantizedAabbMin(curNodeId, i2, quantizedContiguousNodes.getQuantizedAabbMin(rightChildNodeId, i2));
+                    }
 
-		if (curNodeSubPart >= 0) {
-			meshInterface.unLockReadOnlyVertexBase(curNodeSubPart);
-		}
-	}
-	
-	protected void buildTree(int startIndex, int endIndex) {
-		//#ifdef DEBUG_TREE_BUILDING
-		if (DEBUG_TREE_BUILDING) {
-			gStackDepth++;
-			if (gStackDepth > gMaxStackDepth) {
-				gMaxStackDepth = gStackDepth;
-			}
-		}
-		//#endif //DEBUG_TREE_BUILDING
+                    curNodes.setQuantizedAabbMax(curNodeId, i2, quantizedContiguousNodes.getQuantizedAabbMax(leftChildNodeId, i2));
+                    if (curNodes.getQuantizedAabbMax(curNodeId, i2) < quantizedContiguousNodes.getQuantizedAabbMax(rightChildNodeId, i2)) {
+                        curNodes.setQuantizedAabbMax(curNodeId, i2, quantizedContiguousNodes.getQuantizedAabbMax(rightChildNodeId, i2));
+                    }
+                }
+            }
+        }
 
-		int splitAxis, splitIndex, i;
-		int numIndices = endIndex - startIndex;
-		int curIndex = curNodeIndex;
+        if (curNodeSubPart >= 0) {
+            meshInterface.unLockReadOnlyVertexBase(curNodeSubPart);
+        }
+    }
 
-		assert (numIndices > 0);
+    protected void buildTree(int startIndex, int endIndex) {
+        //#ifdef DEBUG_TREE_BUILDING
+        if (DEBUG_TREE_BUILDING) {
+            gStackDepth++;
+            if (gStackDepth > gMaxStackDepth) {
+                gMaxStackDepth = gStackDepth;
+            }
+        }
+        //#endif //DEBUG_TREE_BUILDING
 
-		if (numIndices == 1) {
-			//#ifdef DEBUG_TREE_BUILDING
-			if (DEBUG_TREE_BUILDING) {
-				gStackDepth--;
-			}
-			//#endif //DEBUG_TREE_BUILDING
+        int splitAxis, splitIndex, i;
+        int numIndices = endIndex - startIndex;
+        int curIndex = curNodeIndex;
 
-			assignInternalNodeFromLeafNode(curNodeIndex, startIndex);
+        assert (numIndices > 0);
 
-			curNodeIndex++;
-			return;
-		}
-		// calculate Best Splitting Axis and where to split it. Sort the incoming 'leafNodes' array within range 'startIndex/endIndex'.
+        if (numIndices == 1) {
+            //#ifdef DEBUG_TREE_BUILDING
+            if (DEBUG_TREE_BUILDING) {
+                gStackDepth--;
+            }
+            //#endif //DEBUG_TREE_BUILDING
 
-		splitAxis = calcSplittingAxis(startIndex, endIndex);
+            assignInternalNodeFromLeafNode(curNodeIndex, startIndex);
 
-		splitIndex = sortAndCalcSplittingIndex(startIndex, endIndex, splitAxis);
+            curNodeIndex++;
+            return;
+        }
+        // calculate Best Splitting Axis and where to split it. Sort the incoming 'leafNodes' array within range 'startIndex/endIndex'.
 
-		int internalNodeIndex = curNodeIndex;
+        splitAxis = calcSplittingAxis(startIndex, endIndex);
 
-		Vector3f tmp1 = Stack.alloc(Vector3f.class);
-		tmp1.set(-1e30f, -1e30f, -1e30f);
-		setInternalNodeAabbMax(curNodeIndex, tmp1);
-		Vector3f tmp2 = Stack.alloc(Vector3f.class);
-		tmp2.set(1e30f, 1e30f, 1e30f);
-		setInternalNodeAabbMin(curNodeIndex, tmp2);
+        splitIndex = sortAndCalcSplittingIndex(startIndex, endIndex, splitAxis);
 
-		for (i = startIndex; i < endIndex; i++) {
-			mergeInternalNodeAabb(curNodeIndex, getAabbMin(i), getAabbMax(i));
-		}
+        int internalNodeIndex = curNodeIndex;
 
-		curNodeIndex++;
+        Vector3f tmp1 = new Vector3f();
+        tmp1.set(-1e30f, -1e30f, -1e30f);
+        setInternalNodeAabbMax(curNodeIndex, tmp1);
+        Vector3f tmp2 = new Vector3f();
+        tmp2.set(1e30f, 1e30f, 1e30f);
+        setInternalNodeAabbMin(curNodeIndex, tmp2);
 
-		//internalNode->m_escapeIndex;
+        for (i = startIndex; i < endIndex; i++) {
+            mergeInternalNodeAabb(curNodeIndex, getAabbMin(i), getAabbMax(i));
+        }
 
-		int leftChildNodexIndex = curNodeIndex;
+        curNodeIndex++;
 
-		//build left child tree
-		buildTree(startIndex, splitIndex);
+        //internalNode->m_escapeIndex;
 
-		int rightChildNodexIndex = curNodeIndex;
-		// build right child tree
-		buildTree(splitIndex, endIndex);
+        int leftChildNodexIndex = curNodeIndex;
 
-		//#ifdef DEBUG_TREE_BUILDING
-		if (DEBUG_TREE_BUILDING) {
-			gStackDepth--;
-		}
-		//#endif //DEBUG_TREE_BUILDING
+        //build left child tree
+        buildTree(startIndex, splitIndex);
 
-		int escapeIndex = curNodeIndex - curIndex;
+        int rightChildNodexIndex = curNodeIndex;
+        // build right child tree
+        buildTree(splitIndex, endIndex);
 
-		if (useQuantization) {
-			// escapeIndex is the number of nodes of this subtree
-			int sizeQuantizedNode = QuantizedBvhNodes.getNodeSize();
-			int treeSizeInBytes = escapeIndex * sizeQuantizedNode;
-			if (treeSizeInBytes > MAX_SUBTREE_SIZE_IN_BYTES) {
-				updateSubtreeHeaders(leftChildNodexIndex, rightChildNodexIndex);
-			}
-		}
+        //#ifdef DEBUG_TREE_BUILDING
+        if (DEBUG_TREE_BUILDING) {
+            gStackDepth--;
+        }
+        //#endif //DEBUG_TREE_BUILDING
 
-		setInternalNodeEscapeIndex(internalNodeIndex, escapeIndex);
-	}
+        int escapeIndex = curNodeIndex - curIndex;
 
-	protected boolean testQuantizedAabbAgainstQuantizedAabb(long aabbMin1, long aabbMax1, long aabbMin2, long aabbMax2) {
-		int aabbMin1_0 = QuantizedBvhNodes.getCoord(aabbMin1, 0);
-		int aabbMin1_1 = QuantizedBvhNodes.getCoord(aabbMin1, 1);
-		int aabbMin1_2 = QuantizedBvhNodes.getCoord(aabbMin1, 2);
+        if (useQuantization) {
+            // escapeIndex is the number of nodes of this subtree
+            int sizeQuantizedNode = QuantizedBvhNodes.getNodeSize();
+            int treeSizeInBytes = escapeIndex * sizeQuantizedNode;
+            if (treeSizeInBytes > MAX_SUBTREE_SIZE_IN_BYTES) {
+                updateSubtreeHeaders(leftChildNodexIndex, rightChildNodexIndex);
+            }
+        }
 
-		int aabbMax1_0 = QuantizedBvhNodes.getCoord(aabbMax1, 0);
-		int aabbMax1_1 = QuantizedBvhNodes.getCoord(aabbMax1, 1);
-		int aabbMax1_2 = QuantizedBvhNodes.getCoord(aabbMax1, 2);
+        setInternalNodeEscapeIndex(internalNodeIndex, escapeIndex);
+    }
 
-		int aabbMin2_0 = QuantizedBvhNodes.getCoord(aabbMin2, 0);
-		int aabbMin2_1 = QuantizedBvhNodes.getCoord(aabbMin2, 1);
-		int aabbMin2_2 = QuantizedBvhNodes.getCoord(aabbMin2, 2);
+    protected boolean testQuantizedAabbAgainstQuantizedAabb(long aabbMin1, long aabbMax1, long aabbMin2, long aabbMax2) {
+        int aabbMin1_0 = QuantizedBvhNodes.getCoord(aabbMin1, 0);
+        int aabbMin1_1 = QuantizedBvhNodes.getCoord(aabbMin1, 1);
+        int aabbMin1_2 = QuantizedBvhNodes.getCoord(aabbMin1, 2);
 
-		int aabbMax2_0 = QuantizedBvhNodes.getCoord(aabbMax2, 0);
-		int aabbMax2_1 = QuantizedBvhNodes.getCoord(aabbMax2, 1);
-		int aabbMax2_2 = QuantizedBvhNodes.getCoord(aabbMax2, 2);
+        int aabbMax1_0 = QuantizedBvhNodes.getCoord(aabbMax1, 0);
+        int aabbMax1_1 = QuantizedBvhNodes.getCoord(aabbMax1, 1);
+        int aabbMax1_2 = QuantizedBvhNodes.getCoord(aabbMax1, 2);
 
-		boolean overlap = true;
-		overlap = (aabbMin1_0 > aabbMax2_0 || aabbMax1_0 < aabbMin2_0) ? false : overlap;
-		overlap = (aabbMin1_2 > aabbMax2_2 || aabbMax1_2 < aabbMin2_2) ? false : overlap;
-		overlap = (aabbMin1_1 > aabbMax2_1 || aabbMax1_1 < aabbMin2_1) ? false : overlap;
-		return overlap;
-	}
+        int aabbMin2_0 = QuantizedBvhNodes.getCoord(aabbMin2, 0);
+        int aabbMin2_1 = QuantizedBvhNodes.getCoord(aabbMin2, 1);
+        int aabbMin2_2 = QuantizedBvhNodes.getCoord(aabbMin2, 2);
 
-	protected void updateSubtreeHeaders(int leftChildNodexIndex, int rightChildNodexIndex) {
-		assert (useQuantization);
+        int aabbMax2_0 = QuantizedBvhNodes.getCoord(aabbMax2, 0);
+        int aabbMax2_1 = QuantizedBvhNodes.getCoord(aabbMax2, 1);
+        int aabbMax2_2 = QuantizedBvhNodes.getCoord(aabbMax2, 2);
 
-		//btQuantizedBvhNode& leftChildNode = m_quantizedContiguousNodes[leftChildNodexIndex];
-		int leftSubTreeSize = quantizedContiguousNodes.isLeafNode(leftChildNodexIndex) ? 1 : quantizedContiguousNodes.getEscapeIndex(leftChildNodexIndex);
-		int leftSubTreeSizeInBytes = leftSubTreeSize * QuantizedBvhNodes.getNodeSize();
+        boolean overlap = true;
+        overlap = (aabbMin1_0 > aabbMax2_0 || aabbMax1_0 < aabbMin2_0) ? false : overlap;
+        overlap = (aabbMin1_2 > aabbMax2_2 || aabbMax1_2 < aabbMin2_2) ? false : overlap;
+        overlap = (aabbMin1_1 > aabbMax2_1 || aabbMax1_1 < aabbMin2_1) ? false : overlap;
+        return overlap;
+    }
 
-		//btQuantizedBvhNode& rightChildNode = m_quantizedContiguousNodes[rightChildNodexIndex];
-		int rightSubTreeSize = quantizedContiguousNodes.isLeafNode(rightChildNodexIndex) ? 1 : quantizedContiguousNodes.getEscapeIndex(rightChildNodexIndex);
-		int rightSubTreeSizeInBytes = rightSubTreeSize * QuantizedBvhNodes.getNodeSize();
+    protected void updateSubtreeHeaders(int leftChildNodexIndex, int rightChildNodexIndex) {
+        assert (useQuantization);
 
-		if (leftSubTreeSizeInBytes <= MAX_SUBTREE_SIZE_IN_BYTES) {
-			BvhSubtreeInfo subtree = new BvhSubtreeInfo();
-			SubtreeHeaders.add(subtree);
+        //btQuantizedBvhNode& leftChildNode = m_quantizedContiguousNodes[leftChildNodexIndex];
+        int leftSubTreeSize = quantizedContiguousNodes.isLeafNode(leftChildNodexIndex) ? 1 : quantizedContiguousNodes.getEscapeIndex(leftChildNodexIndex);
+        int leftSubTreeSizeInBytes = leftSubTreeSize * QuantizedBvhNodes.getNodeSize();
 
-			subtree.setAabbFromQuantizeNode(quantizedContiguousNodes, leftChildNodexIndex);
-			subtree.rootNodeIndex = leftChildNodexIndex;
-			subtree.subtreeSize = leftSubTreeSize;
-		}
+        //btQuantizedBvhNode& rightChildNode = m_quantizedContiguousNodes[rightChildNodexIndex];
+        int rightSubTreeSize = quantizedContiguousNodes.isLeafNode(rightChildNodexIndex) ? 1 : quantizedContiguousNodes.getEscapeIndex(rightChildNodexIndex);
+        int rightSubTreeSizeInBytes = rightSubTreeSize * QuantizedBvhNodes.getNodeSize();
 
-		if (rightSubTreeSizeInBytes <= MAX_SUBTREE_SIZE_IN_BYTES) {
-			BvhSubtreeInfo subtree = new BvhSubtreeInfo();
-			SubtreeHeaders.add(subtree);
+        if (leftSubTreeSizeInBytes <= MAX_SUBTREE_SIZE_IN_BYTES) {
+            BvhSubtreeInfo subtree = new BvhSubtreeInfo();
+            SubtreeHeaders.add(subtree);
 
-			subtree.setAabbFromQuantizeNode(quantizedContiguousNodes, rightChildNodexIndex);
-			subtree.rootNodeIndex = rightChildNodexIndex;
-			subtree.subtreeSize = rightSubTreeSize;
-		}
+            subtree.setAabbFromQuantizeNode(quantizedContiguousNodes, leftChildNodexIndex);
+            subtree.rootNodeIndex = leftChildNodexIndex;
+            subtree.subtreeSize = leftSubTreeSize;
+        }
 
-		// PCK: update the copy of the size
-		subtreeHeaderCount = SubtreeHeaders.size();
-	}
-	
-	protected int sortAndCalcSplittingIndex(int startIndex, int endIndex, int splitAxis) {
-		int i;
-		int splitIndex = startIndex;
-		int numIndices = endIndex - startIndex;
-		float splitValue;
+        if (rightSubTreeSizeInBytes <= MAX_SUBTREE_SIZE_IN_BYTES) {
+            BvhSubtreeInfo subtree = new BvhSubtreeInfo();
+            SubtreeHeaders.add(subtree);
 
-		Vector3f means = Stack.alloc(Vector3f.class);
-		means.set(0f, 0f, 0f);
-		Vector3f center = Stack.alloc(Vector3f.class);
-		for (i = startIndex; i < endIndex; i++) {
-			center.add(getAabbMax(i), getAabbMin(i));
-			center.scale(0.5f);
-			means.add(center);
-		}
-		means.scale(1f / (float) numIndices);
+            subtree.setAabbFromQuantizeNode(quantizedContiguousNodes, rightChildNodexIndex);
+            subtree.rootNodeIndex = rightChildNodexIndex;
+            subtree.subtreeSize = rightSubTreeSize;
+        }
 
-		splitValue = VectorUtil.getCoord(means, splitAxis);
+        // PCK: update the copy of the size
+        subtreeHeaderCount = SubtreeHeaders.size();
+    }
 
-		//sort leafNodes so all values larger then splitValue comes first, and smaller values start from 'splitIndex'.
-		for (i = startIndex; i < endIndex; i++) {
-			//Vector3f center = new Vector3f();
-			center.add(getAabbMax(i), getAabbMin(i));
-			center.scale(0.5f);
+    protected int sortAndCalcSplittingIndex(int startIndex, int endIndex, int splitAxis) {
+        int i;
+        int splitIndex = startIndex;
+        int numIndices = endIndex - startIndex;
+        float splitValue;
 
-			if (VectorUtil.getCoord(center, splitAxis) > splitValue) {
-				// swap
-				swapLeafNodes(i, splitIndex);
-				splitIndex++;
-			}
-		}
+        Vector3f means = new Vector3f();
+        means.set(0f, 0f, 0f);
+        Vector3f center = new Vector3f();
+        for (i = startIndex; i < endIndex; i++) {
+            center.add(getAabbMax(i), getAabbMin(i));
+            center.scale(0.5f);
+            means.add(center);
+        }
+        means.scale(1f / (float) numIndices);
 
-		// if the splitIndex causes unbalanced trees, fix this by using the center in between startIndex and endIndex
-		// otherwise the tree-building might fail due to stack-overflows in certain cases.
-		// unbalanced1 is unsafe: it can cause stack overflows
-		// bool unbalanced1 = ((splitIndex==startIndex) || (splitIndex == (endIndex-1)));
+        splitValue = VectorUtil.getCoord(means, splitAxis);
 
-		// unbalanced2 should work too: always use center (perfect balanced trees)	
-		// bool unbalanced2 = true;
+        //sort leafNodes so all values larger then splitValue comes first, and smaller values start from 'splitIndex'.
+        for (i = startIndex; i < endIndex; i++) {
+            //Vector3f center = new Vector3f();
+            center.add(getAabbMax(i), getAabbMin(i));
+            center.scale(0.5f);
 
-		// this should be safe too:
-		int rangeBalancedIndices = numIndices / 3;
-		boolean unbalanced = ((splitIndex <= (startIndex + rangeBalancedIndices)) || (splitIndex >= (endIndex - 1 - rangeBalancedIndices)));
+            if (VectorUtil.getCoord(center, splitAxis) > splitValue) {
+                // swap
+                swapLeafNodes(i, splitIndex);
+                splitIndex++;
+            }
+        }
 
-		if (unbalanced) {
-			splitIndex = startIndex + (numIndices >> 1);
-		}
+        // if the splitIndex causes unbalanced trees, fix this by using the center in between startIndex and endIndex
+        // otherwise the tree-building might fail due to stack-overflows in certain cases.
+        // unbalanced1 is unsafe: it can cause stack overflows
+        // bool unbalanced1 = ((splitIndex==startIndex) || (splitIndex == (endIndex-1)));
 
-		boolean unbal = (splitIndex == startIndex) || (splitIndex == (endIndex));
-		assert (!unbal);
+        // unbalanced2 should work too: always use center (perfect balanced trees)
+        // bool unbalanced2 = true;
 
-		return splitIndex;
-	}
+        // this should be safe too:
+        int rangeBalancedIndices = numIndices / 3;
+        boolean unbalanced = ((splitIndex <= (startIndex + rangeBalancedIndices)) || (splitIndex >= (endIndex - 1 - rangeBalancedIndices)));
 
-	protected int calcSplittingAxis(int startIndex, int endIndex) {
-		int i;
+        if (unbalanced) {
+            splitIndex = startIndex + (numIndices >> 1);
+        }
 
-		Vector3f means = Stack.alloc(Vector3f.class);
-		means.set(0f, 0f, 0f);
-		Vector3f variance = Stack.alloc(Vector3f.class);
-		variance.set(0f, 0f, 0f);
-		int numIndices = endIndex - startIndex;
+        boolean unbal = (splitIndex == startIndex) || (splitIndex == (endIndex));
+        assert (!unbal);
 
-		Vector3f center = Stack.alloc(Vector3f.class);
-		for (i = startIndex; i < endIndex; i++) {
-			center.add(getAabbMax(i), getAabbMin(i));
-			center.scale(0.5f);
-			means.add(center);
-		}
-		means.scale(1f / (float) numIndices);
+        return splitIndex;
+    }
 
-		Vector3f diff2 = Stack.alloc(Vector3f.class);
-		for (i = startIndex; i < endIndex; i++) {
-			center.add(getAabbMax(i), getAabbMin(i));
-			center.scale(0.5f);
-			diff2.sub(center, means);
-			//diff2 = diff2 * diff2;
-			VectorUtil.mul(diff2, diff2, diff2);
-			variance.add(diff2);
-		}
-		variance.scale(1f / ((float) numIndices - 1));
+    protected int calcSplittingAxis(int startIndex, int endIndex) {
+        int i;
 
-		return VectorUtil.maxAxis(variance);
-	}
+        Vector3f means = new Vector3f();
+        means.set(0f, 0f, 0f);
+        Vector3f variance = new Vector3f();
+        variance.set(0f, 0f, 0f);
+        int numIndices = endIndex - startIndex;
 
-	public void reportAabbOverlappingNodex(NodeOverlapCallback nodeCallback, Vector3f aabbMin, Vector3f aabbMax) {
-		// either choose recursive traversal (walkTree) or stackless (walkStacklessTree)
+        Vector3f center = new Vector3f();
+        for (i = startIndex; i < endIndex; i++) {
+            center.add(getAabbMax(i), getAabbMin(i));
+            center.scale(0.5f);
+            means.add(center);
+        }
+        means.scale(1f / (float) numIndices);
 
-		if (useQuantization) {
-			// quantize query AABB
-			long quantizedQueryAabbMin;
-			long quantizedQueryAabbMax;
-			quantizedQueryAabbMin = quantizeWithClamp(aabbMin);
-			quantizedQueryAabbMax = quantizeWithClamp(aabbMax);
+        Vector3f diff2 = new Vector3f();
+        for (i = startIndex; i < endIndex; i++) {
+            center.add(getAabbMax(i), getAabbMin(i));
+            center.scale(0.5f);
+            diff2.sub(center, means);
+            //diff2 = diff2 * diff2;
+            VectorUtil.mul(diff2, diff2, diff2);
+            variance.add(diff2);
+        }
+        variance.scale(1f / ((float) numIndices - 1));
 
-			// JAVA TODO:
-			switch (traversalMode) {
-				case STACKLESS:
-					walkStacklessQuantizedTree(nodeCallback, quantizedQueryAabbMin, quantizedQueryAabbMax, 0, curNodeIndex);
-					break;
-					
+        return VectorUtil.maxAxis(variance);
+    }
+
+    public void reportAabbOverlappingNodex(NodeOverlapCallback nodeCallback, Vector3f aabbMin, Vector3f aabbMax) {
+        // either choose recursive traversal (walkTree) or stackless (walkStacklessTree)
+
+        if (useQuantization) {
+            // quantize query AABB
+            long quantizedQueryAabbMin;
+            long quantizedQueryAabbMax;
+            quantizedQueryAabbMin = quantizeWithClamp(aabbMin);
+            quantizedQueryAabbMax = quantizeWithClamp(aabbMax);
+
+            // JAVA TODO:
+            switch (traversalMode) {
+                case STACKLESS:
+                    walkStacklessQuantizedTree(nodeCallback, quantizedQueryAabbMin, quantizedQueryAabbMax, 0, curNodeIndex);
+                    break;
+
 //				case STACKLESS_CACHE_FRIENDLY:
 //					walkStacklessQuantizedTreeCacheFriendly(nodeCallback, quantizedQueryAabbMin, quantizedQueryAabbMax);
 //					break;
-					
-				case RECURSIVE:
-					walkRecursiveQuantizedTreeAgainstQueryAabb(quantizedContiguousNodes, 0, nodeCallback, quantizedQueryAabbMin, quantizedQueryAabbMax);
-					break;
-					
-				default:
-					assert (false); // unsupported
-			}
-		}
-		else {
-			walkStacklessTree(nodeCallback, aabbMin, aabbMax);
-		}
-	}
-	
-	protected void walkStacklessTree(NodeOverlapCallback nodeCallback, Vector3f aabbMin, Vector3f aabbMax) {
-		assert (!useQuantization);
 
-		// JAVA NOTE: rewritten
-		OptimizedBvhNode rootNode = null;//contiguousNodes.get(0);
-		int rootNode_index = 0;
+                case RECURSIVE:
+                    walkRecursiveQuantizedTreeAgainstQueryAabb(quantizedContiguousNodes, 0, nodeCallback, quantizedQueryAabbMin, quantizedQueryAabbMax);
+                    break;
 
-		int escapeIndex, curIndex = 0;
-		int walkIterations = 0;
-		boolean isLeafNode;
-		//PCK: unsigned instead of bool
-		//unsigned aabbOverlap;
-		boolean aabbOverlap;
+                default:
+                    assert (false); // unsupported
+            }
+        } else {
+            walkStacklessTree(nodeCallback, aabbMin, aabbMax);
+        }
+    }
 
-		while (curIndex < curNodeIndex) {
-			// catch bugs in tree data
-			assert (walkIterations < curNodeIndex);
+    protected void walkStacklessTree(NodeOverlapCallback nodeCallback, Vector3f aabbMin, Vector3f aabbMax) {
+        assert (!useQuantization);
 
-			walkIterations++;
+        // JAVA NOTE: rewritten
+        OptimizedBvhNode rootNode = null;//contiguousNodes.get(0);
+        int rootNode_index = 0;
 
-			rootNode = contiguousNodes.getQuick(rootNode_index);
+        int escapeIndex, curIndex = 0;
+        int walkIterations = 0;
+        boolean isLeafNode;
+        //PCK: unsigned instead of bool
+        //unsigned aabbOverlap;
+        boolean aabbOverlap;
 
-			aabbOverlap = AabbUtil2.testAabbAgainstAabb2(aabbMin, aabbMax, rootNode.aabbMinOrg, rootNode.aabbMaxOrg);
-			isLeafNode = (rootNode.escapeIndex == -1);
+        while (curIndex < curNodeIndex) {
+            // catch bugs in tree data
+            assert (walkIterations < curNodeIndex);
 
-			// PCK: unsigned instead of bool
-			if (isLeafNode && (aabbOverlap/* != 0*/)) {
-				nodeCallback.processNode(rootNode.subPart, rootNode.triangleIndex);
-			}
+            walkIterations++;
 
-			rootNode = null;
+            rootNode = contiguousNodes.getQuick(rootNode_index);
 
-			//PCK: unsigned instead of bool
-			if ((aabbOverlap/* != 0*/) || isLeafNode) {
-				rootNode_index++;
-				curIndex++;
-			}
-			else {
-				escapeIndex = /*rootNode*/ contiguousNodes.getQuick(rootNode_index).escapeIndex;
-				rootNode_index += escapeIndex;
-				curIndex += escapeIndex;
-			}
-		}
-		if (maxIterations < walkIterations) {
-			maxIterations = walkIterations;
-		}
-	}
+            aabbOverlap = AabbUtil2.testAabbAgainstAabb2(aabbMin, aabbMax, rootNode.aabbMinOrg, rootNode.aabbMaxOrg);
+            isLeafNode = (rootNode.escapeIndex == -1);
 
-	protected void walkRecursiveQuantizedTreeAgainstQueryAabb(QuantizedBvhNodes currentNodes, int currentNodeId, NodeOverlapCallback nodeCallback, long quantizedQueryAabbMin, long quantizedQueryAabbMax) {
-		assert (useQuantization);
+            // PCK: unsigned instead of bool
+            if (isLeafNode && (aabbOverlap/* != 0*/)) {
+                nodeCallback.processNode(rootNode.subPart, rootNode.triangleIndex);
+            }
 
-		boolean isLeafNode;
-		boolean aabbOverlap;
+            rootNode = null;
 
-		aabbOverlap = testQuantizedAabbAgainstQuantizedAabb(quantizedQueryAabbMin, quantizedQueryAabbMax, currentNodes.getQuantizedAabbMin(currentNodeId), currentNodes.getQuantizedAabbMax(currentNodeId));
-		isLeafNode = currentNodes.isLeafNode(currentNodeId);
+            //PCK: unsigned instead of bool
+            if ((aabbOverlap/* != 0*/) || isLeafNode) {
+                rootNode_index++;
+                curIndex++;
+            } else {
+                escapeIndex = /*rootNode*/ contiguousNodes.getQuick(rootNode_index).escapeIndex;
+                rootNode_index += escapeIndex;
+                curIndex += escapeIndex;
+            }
+        }
+        if (maxIterations < walkIterations) {
+            maxIterations = walkIterations;
+        }
+    }
 
-		if (aabbOverlap) {
-			if (isLeafNode) {
-				nodeCallback.processNode(currentNodes.getPartId(currentNodeId), currentNodes.getTriangleIndex(currentNodeId));
-			}
-			else {
-				// process left and right children
-				int leftChildNodeId = currentNodeId + 1;
-				walkRecursiveQuantizedTreeAgainstQueryAabb(currentNodes, leftChildNodeId, nodeCallback, quantizedQueryAabbMin, quantizedQueryAabbMax);
+    protected void walkRecursiveQuantizedTreeAgainstQueryAabb(QuantizedBvhNodes currentNodes, int currentNodeId, NodeOverlapCallback nodeCallback, long quantizedQueryAabbMin, long quantizedQueryAabbMax) {
+        assert (useQuantization);
 
-				int rightChildNodeId = currentNodes.isLeafNode(leftChildNodeId) ? leftChildNodeId + 1 : leftChildNodeId + currentNodes.getEscapeIndex(leftChildNodeId);
-				walkRecursiveQuantizedTreeAgainstQueryAabb(currentNodes, rightChildNodeId, nodeCallback, quantizedQueryAabbMin, quantizedQueryAabbMax);
-			}
-		}
-	}
+        boolean isLeafNode;
+        boolean aabbOverlap;
 
-	protected void walkStacklessQuantizedTreeAgainstRay(NodeOverlapCallback nodeCallback, Vector3f raySource, Vector3f rayTarget, Vector3f aabbMin, Vector3f aabbMax, int startNodeIndex, int endNodeIndex) {
-		assert (useQuantization);
+        aabbOverlap = testQuantizedAabbAgainstQuantizedAabb(quantizedQueryAabbMin, quantizedQueryAabbMax, currentNodes.getQuantizedAabbMin(currentNodeId), currentNodes.getQuantizedAabbMax(currentNodeId));
+        isLeafNode = currentNodes.isLeafNode(currentNodeId);
 
-		Vector3f tmp = Stack.alloc(Vector3f.class);
+        if (aabbOverlap) {
+            if (isLeafNode) {
+                nodeCallback.processNode(currentNodes.getPartId(currentNodeId), currentNodes.getTriangleIndex(currentNodeId));
+            } else {
+                // process left and right children
+                int leftChildNodeId = currentNodeId + 1;
+                walkRecursiveQuantizedTreeAgainstQueryAabb(currentNodes, leftChildNodeId, nodeCallback, quantizedQueryAabbMin, quantizedQueryAabbMax);
 
-		int curIndex = startNodeIndex;
-		int walkIterations = 0;
-		int subTreeSize = endNodeIndex - startNodeIndex;
+                int rightChildNodeId = currentNodes.isLeafNode(leftChildNodeId) ? leftChildNodeId + 1 : leftChildNodeId + currentNodes.getEscapeIndex(leftChildNodeId);
+                walkRecursiveQuantizedTreeAgainstQueryAabb(currentNodes, rightChildNodeId, nodeCallback, quantizedQueryAabbMin, quantizedQueryAabbMax);
+            }
+        }
+    }
 
-		QuantizedBvhNodes rootNode = quantizedContiguousNodes;
-		int rootNode_idx = startNodeIndex;
-		int escapeIndex;
+    protected void walkStacklessQuantizedTreeAgainstRay(NodeOverlapCallback nodeCallback, Vector3f raySource, Vector3f rayTarget, Vector3f aabbMin, Vector3f aabbMax, int startNodeIndex, int endNodeIndex) {
+        assert (useQuantization);
 
-		boolean isLeafNode;
-		boolean boxBoxOverlap = false;
-		boolean rayBoxOverlap = false;
+        Vector3f tmp = new Vector3f();
 
-		float lambda_max = 1f;
-		//#define RAYAABB2
-		//#ifdef RAYAABB2
-		Vector3f rayFrom = Stack.alloc(raySource);
-		Vector3f rayDirection = Stack.alloc(Vector3f.class);
-		tmp.sub(rayTarget, raySource);
-		rayDirection.normalize(tmp);
-		lambda_max = rayDirection.dot(tmp);
-		rayDirection.x = 1f / rayDirection.x;
-		rayDirection.y = 1f / rayDirection.y;
-		rayDirection.z = 1f / rayDirection.z;
+        int curIndex = startNodeIndex;
+        int walkIterations = 0;
+        int subTreeSize = endNodeIndex - startNodeIndex;
+
+        QuantizedBvhNodes rootNode = quantizedContiguousNodes;
+        int rootNode_idx = startNodeIndex;
+        int escapeIndex;
+
+        boolean isLeafNode;
+        boolean boxBoxOverlap = false;
+        boolean rayBoxOverlap = false;
+
+        float lambda_max = 1f;
+        //#define RAYAABB2
+        //#ifdef RAYAABB2
+        Vector3f rayFrom = new Vector3f(raySource);
+        Vector3f rayDirection = new Vector3f();
+        tmp.sub(rayTarget, raySource);
+        rayDirection.normalize(tmp);
+        lambda_max = rayDirection.dot(tmp);
+        rayDirection.x = 1f / rayDirection.x;
+        rayDirection.y = 1f / rayDirection.y;
+        rayDirection.z = 1f / rayDirection.z;
 //		boolean sign_x = rayDirection.x < 0f;
 //		boolean sign_y = rayDirection.y < 0f;
 //		boolean sign_z = rayDirection.z < 0f;
-		//#endif
+        //#endif
 
 		/* Quick pruning by quantized box */
-		Vector3f rayAabbMin = Stack.alloc(raySource);
-		Vector3f rayAabbMax = Stack.alloc(raySource);
-		VectorUtil.setMin(rayAabbMin, rayTarget);
-		VectorUtil.setMax(rayAabbMax, rayTarget);
+        Vector3f rayAabbMin = new Vector3f(raySource);
+        Vector3f rayAabbMax = new Vector3f(raySource);
+        VectorUtil.setMin(rayAabbMin, rayTarget);
+        VectorUtil.setMax(rayAabbMax, rayTarget);
 
 		/* Add box cast extents to bounding box */
-		rayAabbMin.add(aabbMin);
-		rayAabbMax.add(aabbMax);
+        rayAabbMin.add(aabbMin);
+        rayAabbMax.add(aabbMax);
 
-		long quantizedQueryAabbMin;
-		long quantizedQueryAabbMax;
-		quantizedQueryAabbMin = quantizeWithClamp(rayAabbMin);
-		quantizedQueryAabbMax = quantizeWithClamp(rayAabbMax);
+        long quantizedQueryAabbMin;
+        long quantizedQueryAabbMax;
+        quantizedQueryAabbMin = quantizeWithClamp(rayAabbMin);
+        quantizedQueryAabbMax = quantizeWithClamp(rayAabbMax);
 
-		Vector3f bounds_0 = Stack.alloc(Vector3f.class);
-		Vector3f bounds_1 = Stack.alloc(Vector3f.class);
-		Vector3f normal = Stack.alloc(Vector3f.class);
-		float[] param = new float[1];
+        Vector3f bounds_0 = new Vector3f();
+        Vector3f bounds_1 = new Vector3f();
+        Vector3f normal = new Vector3f();
+        float[] param = new float[1];
 
-		while (curIndex < endNodeIndex) {
-			
-			//#define VISUALLY_ANALYZE_BVH 1
-			//#ifdef VISUALLY_ANALYZE_BVH
-			//		//some code snippet to debugDraw aabb, to visually analyze bvh structure
-			//		static int drawPatch = 0;
-			//		//need some global access to a debugDrawer
-			//		extern btIDebugDraw* debugDrawerPtr;
-			//		if (curIndex==drawPatch)
-			//		{
-			//			btVector3 aabbMin,aabbMax;
-			//			aabbMin = unQuantize(rootNode->m_quantizedAabbMin);
-			//			aabbMax = unQuantize(rootNode->m_quantizedAabbMax);
-			//			btVector3	color(1,0,0);
-			//			debugDrawerPtr->drawAabb(aabbMin,aabbMax,color);
-			//		}
-			//#endif//VISUALLY_ANALYZE_BVH
+        while (curIndex < endNodeIndex) {
 
-			// catch bugs in tree data
-			assert (walkIterations < subTreeSize);
+            //#define VISUALLY_ANALYZE_BVH 1
+            //#ifdef VISUALLY_ANALYZE_BVH
+            //		//some code snippet to debugDraw aabb, to visually analyze bvh structure
+            //		static int drawPatch = 0;
+            //		//need some global access to a debugDrawer
+            //		extern btIDebugDraw* debugDrawerPtr;
+            //		if (curIndex==drawPatch)
+            //		{
+            //			btVector3 aabbMin,aabbMax;
+            //			aabbMin = unQuantize(rootNode->m_quantizedAabbMin);
+            //			aabbMax = unQuantize(rootNode->m_quantizedAabbMax);
+            //			btVector3	color(1,0,0);
+            //			debugDrawerPtr->drawAabb(aabbMin,aabbMax,color);
+            //		}
+            //#endif//VISUALLY_ANALYZE_BVH
 
-			walkIterations++;
-			// only interested if this is closer than any previous hit
-			param[0] = 1f;
-			rayBoxOverlap = false;
-			boxBoxOverlap = testQuantizedAabbAgainstQuantizedAabb(quantizedQueryAabbMin, quantizedQueryAabbMax, rootNode.getQuantizedAabbMin(rootNode_idx), rootNode.getQuantizedAabbMax(rootNode_idx));
-			isLeafNode = rootNode.isLeafNode(rootNode_idx);
-			if (boxBoxOverlap) {
-				unQuantize(bounds_0, rootNode.getQuantizedAabbMin(rootNode_idx));
-				unQuantize(bounds_1, rootNode.getQuantizedAabbMax(rootNode_idx));
-				/* Add box cast extents */
-				bounds_0.add(aabbMin);
-				bounds_1.add(aabbMax);
-				//#if 0
-				//			bool ra2 = btRayAabb2 (raySource, rayDirection, sign, bounds, param, 0.0, lambda_max);
-				//			bool ra = btRayAabb (raySource, rayTarget, bounds[0], bounds[1], param, normal);
-				//			if (ra2 != ra)
-				//			{
-				//				printf("functions don't match\n");
-				//			}
-				//#endif
-				//#ifdef RAYAABB2
-				//			rayBoxOverlap = AabbUtil2.rayAabb2 (raySource, rayDirection, sign, bounds, param, 0.0, lambda_max);
-				//#else
-				rayBoxOverlap = AabbUtil2.rayAabb(raySource, rayTarget, bounds_0, bounds_1, param, normal);
-				//#endif
-			}
+            // catch bugs in tree data
+            assert (walkIterations < subTreeSize);
 
-			if (isLeafNode && rayBoxOverlap) {
-				nodeCallback.processNode(rootNode.getPartId(rootNode_idx), rootNode.getTriangleIndex(rootNode_idx));
-			}
+            walkIterations++;
+            // only interested if this is closer than any previous hit
+            param[0] = 1f;
+            rayBoxOverlap = false;
+            boxBoxOverlap = testQuantizedAabbAgainstQuantizedAabb(quantizedQueryAabbMin, quantizedQueryAabbMax, rootNode.getQuantizedAabbMin(rootNode_idx), rootNode.getQuantizedAabbMax(rootNode_idx));
+            isLeafNode = rootNode.isLeafNode(rootNode_idx);
+            if (boxBoxOverlap) {
+                unQuantize(bounds_0, rootNode.getQuantizedAabbMin(rootNode_idx));
+                unQuantize(bounds_1, rootNode.getQuantizedAabbMax(rootNode_idx));
+                /* Add box cast extents */
+                bounds_0.add(aabbMin);
+                bounds_1.add(aabbMax);
+                //#if 0
+                //			bool ra2 = btRayAabb2 (raySource, rayDirection, sign, bounds, param, 0.0, lambda_max);
+                //			bool ra = btRayAabb (raySource, rayTarget, bounds[0], bounds[1], param, normal);
+                //			if (ra2 != ra)
+                //			{
+                //				printf("functions don't match\n");
+                //			}
+                //#endif
+                //#ifdef RAYAABB2
+                //			rayBoxOverlap = AabbUtil2.rayAabb2 (raySource, rayDirection, sign, bounds, param, 0.0, lambda_max);
+                //#else
+                rayBoxOverlap = AabbUtil2.rayAabb(raySource, rayTarget, bounds_0, bounds_1, param, normal);
+                //#endif
+            }
 
-			if (rayBoxOverlap || isLeafNode) {
-				rootNode_idx++;
-				curIndex++;
-			}
-			else {
-				escapeIndex = rootNode.getEscapeIndex(rootNode_idx);
-				rootNode_idx += escapeIndex;
-				curIndex += escapeIndex;
-			}
-		}
-		
-		if (maxIterations < walkIterations) {
-			maxIterations = walkIterations;
-		}
-	}
+            if (isLeafNode && rayBoxOverlap) {
+                nodeCallback.processNode(rootNode.getPartId(rootNode_idx), rootNode.getTriangleIndex(rootNode_idx));
+            }
 
-	protected void walkStacklessQuantizedTree(NodeOverlapCallback nodeCallback, long quantizedQueryAabbMin, long quantizedQueryAabbMax, int startNodeIndex, int endNodeIndex) {
-		assert (useQuantization);
+            if (rayBoxOverlap || isLeafNode) {
+                rootNode_idx++;
+                curIndex++;
+            } else {
+                escapeIndex = rootNode.getEscapeIndex(rootNode_idx);
+                rootNode_idx += escapeIndex;
+                curIndex += escapeIndex;
+            }
+        }
 
-		int curIndex = startNodeIndex;
-		int walkIterations = 0;
-		int subTreeSize = endNodeIndex - startNodeIndex;
+        if (maxIterations < walkIterations) {
+            maxIterations = walkIterations;
+        }
+    }
 
-		QuantizedBvhNodes rootNode = quantizedContiguousNodes;
-		int rootNode_idx = startNodeIndex;
-		int escapeIndex;
+    protected void walkStacklessQuantizedTree(NodeOverlapCallback nodeCallback, long quantizedQueryAabbMin, long quantizedQueryAabbMax, int startNodeIndex, int endNodeIndex) {
+        assert (useQuantization);
 
-		boolean isLeafNode;
-		boolean aabbOverlap;
+        int curIndex = startNodeIndex;
+        int walkIterations = 0;
+        int subTreeSize = endNodeIndex - startNodeIndex;
 
-		while (curIndex < endNodeIndex) {
-			////#define VISUALLY_ANALYZE_BVH 1
-			//#ifdef VISUALLY_ANALYZE_BVH
-			////some code snippet to debugDraw aabb, to visually analyze bvh structure
-			//static int drawPatch = 0;
-			////need some global access to a debugDrawer
-			//extern btIDebugDraw* debugDrawerPtr;
-			//if (curIndex==drawPatch)
-			//{
-			//	btVector3 aabbMin,aabbMax;
-			//	aabbMin = unQuantize(rootNode->m_quantizedAabbMin);
-			//	aabbMax = unQuantize(rootNode->m_quantizedAabbMax);
-			//	btVector3	color(1,0,0);
-			//	debugDrawerPtr->drawAabb(aabbMin,aabbMax,color);
-			//}
-			//#endif//VISUALLY_ANALYZE_BVH
+        QuantizedBvhNodes rootNode = quantizedContiguousNodes;
+        int rootNode_idx = startNodeIndex;
+        int escapeIndex;
 
-			// catch bugs in tree data
-			assert (walkIterations < subTreeSize);
+        boolean isLeafNode;
+        boolean aabbOverlap;
 
-			walkIterations++;
-			aabbOverlap = testQuantizedAabbAgainstQuantizedAabb(quantizedQueryAabbMin, quantizedQueryAabbMax, rootNode.getQuantizedAabbMin(rootNode_idx), rootNode.getQuantizedAabbMax(rootNode_idx));
-			isLeafNode = rootNode.isLeafNode(rootNode_idx);
+        while (curIndex < endNodeIndex) {
+            ////#define VISUALLY_ANALYZE_BVH 1
+            //#ifdef VISUALLY_ANALYZE_BVH
+            ////some code snippet to debugDraw aabb, to visually analyze bvh structure
+            //static int drawPatch = 0;
+            ////need some global access to a debugDrawer
+            //extern btIDebugDraw* debugDrawerPtr;
+            //if (curIndex==drawPatch)
+            //{
+            //	btVector3 aabbMin,aabbMax;
+            //	aabbMin = unQuantize(rootNode->m_quantizedAabbMin);
+            //	aabbMax = unQuantize(rootNode->m_quantizedAabbMax);
+            //	btVector3	color(1,0,0);
+            //	debugDrawerPtr->drawAabb(aabbMin,aabbMax,color);
+            //}
+            //#endif//VISUALLY_ANALYZE_BVH
 
-			if (isLeafNode && aabbOverlap) {
-				nodeCallback.processNode(rootNode.getPartId(rootNode_idx), rootNode.getTriangleIndex(rootNode_idx));
-			}
+            // catch bugs in tree data
+            assert (walkIterations < subTreeSize);
 
-			if (aabbOverlap || isLeafNode) {
-				rootNode_idx++;
-				curIndex++;
-			}
-			else {
-				escapeIndex = rootNode.getEscapeIndex(rootNode_idx);
-				rootNode_idx += escapeIndex;
-				curIndex += escapeIndex;
-			}
-		}
+            walkIterations++;
+            aabbOverlap = testQuantizedAabbAgainstQuantizedAabb(quantizedQueryAabbMin, quantizedQueryAabbMax, rootNode.getQuantizedAabbMin(rootNode_idx), rootNode.getQuantizedAabbMax(rootNode_idx));
+            isLeafNode = rootNode.isLeafNode(rootNode_idx);
 
-		if (maxIterations < walkIterations) {
-			maxIterations = walkIterations;
-		}
-	}
-	
-	public void reportRayOverlappingNodex(NodeOverlapCallback nodeCallback, Vector3f raySource, Vector3f rayTarget) {
-		boolean fast_path = useQuantization && traversalMode == TraversalMode.STACKLESS;
-		if (fast_path) {
-			Vector3f tmp = Stack.alloc(Vector3f.class);
-			tmp.set(0f, 0f, 0f);
-			walkStacklessQuantizedTreeAgainstRay(nodeCallback, raySource, rayTarget, tmp, tmp, 0, curNodeIndex);
-		}
-		else {
-			/* Otherwise fallback to AABB overlap test */
-			Vector3f aabbMin = Stack.alloc(raySource);
-			Vector3f aabbMax = Stack.alloc(raySource);
-			VectorUtil.setMin(aabbMin, rayTarget);
-			VectorUtil.setMax(aabbMax, rayTarget);
-			reportAabbOverlappingNodex(nodeCallback, aabbMin, aabbMax);
-		}
-	}
+            if (isLeafNode && aabbOverlap) {
+                nodeCallback.processNode(rootNode.getPartId(rootNode_idx), rootNode.getTriangleIndex(rootNode_idx));
+            }
 
-	public void reportBoxCastOverlappingNodex(NodeOverlapCallback nodeCallback, Vector3f raySource, Vector3f rayTarget, Vector3f aabbMin, Vector3f aabbMax) {
-		boolean fast_path = useQuantization && traversalMode == TraversalMode.STACKLESS;
-		if (fast_path) {
-			walkStacklessQuantizedTreeAgainstRay(nodeCallback, raySource, rayTarget, aabbMin, aabbMax, 0, curNodeIndex);
-		}
-		else {
+            if (aabbOverlap || isLeafNode) {
+                rootNode_idx++;
+                curIndex++;
+            } else {
+                escapeIndex = rootNode.getEscapeIndex(rootNode_idx);
+                rootNode_idx += escapeIndex;
+                curIndex += escapeIndex;
+            }
+        }
+
+        if (maxIterations < walkIterations) {
+            maxIterations = walkIterations;
+        }
+    }
+
+    public void reportRayOverlappingNodex(NodeOverlapCallback nodeCallback, Vector3f raySource, Vector3f rayTarget) {
+        boolean fast_path = useQuantization && traversalMode == TraversalMode.STACKLESS;
+        if (fast_path) {
+            Vector3f tmp = new Vector3f();
+            tmp.set(0f, 0f, 0f);
+            walkStacklessQuantizedTreeAgainstRay(nodeCallback, raySource, rayTarget, tmp, tmp, 0, curNodeIndex);
+        } else {
+            /* Otherwise fallback to AABB overlap test */
+            Vector3f aabbMin = new Vector3f(raySource);
+            Vector3f aabbMax = new Vector3f(raySource);
+            VectorUtil.setMin(aabbMin, rayTarget);
+            VectorUtil.setMax(aabbMax, rayTarget);
+            reportAabbOverlappingNodex(nodeCallback, aabbMin, aabbMax);
+        }
+    }
+
+    public void reportBoxCastOverlappingNodex(NodeOverlapCallback nodeCallback, Vector3f raySource, Vector3f rayTarget, Vector3f aabbMin, Vector3f aabbMax) {
+        boolean fast_path = useQuantization && traversalMode == TraversalMode.STACKLESS;
+        if (fast_path) {
+            walkStacklessQuantizedTreeAgainstRay(nodeCallback, raySource, rayTarget, aabbMin, aabbMax, 0, curNodeIndex);
+        } else {
 			/* Slow path:
 			Construct the bounding box for the entire box cast and send that down the tree */
-			Vector3f qaabbMin = Stack.alloc(raySource);
-			Vector3f qaabbMax = Stack.alloc(raySource);
-			VectorUtil.setMin(qaabbMin, rayTarget);
-			VectorUtil.setMax(qaabbMax, rayTarget);
-			qaabbMin.add(aabbMin);
-			qaabbMax.add(aabbMax);
-			reportAabbOverlappingNodex(nodeCallback, qaabbMin, qaabbMax);
-		}
-	}
-	
-	public long quantizeWithClamp(Vector3f point) {
-		assert (useQuantization);
+            Vector3f qaabbMin = new Vector3f(raySource);
+            Vector3f qaabbMax = new Vector3f(raySource);
+            VectorUtil.setMin(qaabbMin, rayTarget);
+            VectorUtil.setMax(qaabbMax, rayTarget);
+            qaabbMin.add(aabbMin);
+            qaabbMax.add(aabbMax);
+            reportAabbOverlappingNodex(nodeCallback, qaabbMin, qaabbMax);
+        }
+    }
 
-		Vector3f clampedPoint = Stack.alloc(point);
-		VectorUtil.setMax(clampedPoint, bvhAabbMin);
-		VectorUtil.setMin(clampedPoint, bvhAabbMax);
+    public long quantizeWithClamp(Vector3f point) {
+        assert (useQuantization);
 
-		Vector3f v = Stack.alloc(Vector3f.class);
-		v.sub(clampedPoint, bvhAabbMin);
-		VectorUtil.mul(v, v, bvhQuantization);
+        Vector3f clampedPoint = new Vector3f(point);
+        VectorUtil.setMax(clampedPoint, bvhAabbMin);
+        VectorUtil.setMin(clampedPoint, bvhAabbMax);
 
-		int out0 = (int)(v.x + 0.5f) & 0xFFFF;
-		int out1 = (int)(v.y + 0.5f) & 0xFFFF;
-		int out2 = (int)(v.z + 0.5f) & 0xFFFF;
+        Vector3f v = new Vector3f();
+        v.sub(clampedPoint, bvhAabbMin);
+        VectorUtil.mul(v, v, bvhQuantization);
 
-		return ((long)out0) | (((long)out1) << 16) | (((long)out2) << 32);
-	}
-	
-	public void unQuantize(Vector3f vecOut, long vecIn) {
-		int vecIn0 = (int)((vecIn & 0x00000000FFFFL));
-		int vecIn1 = (int)((vecIn & 0x0000FFFF0000L) >>> 16);
-		int vecIn2 = (int)((vecIn & 0xFFFF00000000L) >>> 32);
+        int out0 = (int) (v.x + 0.5f) & 0xFFFF;
+        int out1 = (int) (v.y + 0.5f) & 0xFFFF;
+        int out2 = (int) (v.z + 0.5f) & 0xFFFF;
 
-		vecOut.x = (float)vecIn0 / (bvhQuantization.x);
-		vecOut.y = (float)vecIn1 / (bvhQuantization.y);
-		vecOut.z = (float)vecIn2 / (bvhQuantization.z);
+        return ((long) out0) | (((long) out1) << 16) | (((long) out2) << 32);
+    }
 
-		vecOut.add(bvhAabbMin);
-	}
-	
+    public void unQuantize(Vector3f vecOut, long vecIn) {
+        int vecIn0 = (int) ((vecIn & 0x00000000FFFFL));
+        int vecIn1 = (int) ((vecIn & 0x0000FFFF0000L) >>> 16);
+        int vecIn2 = (int) ((vecIn & 0xFFFF00000000L) >>> 32);
+
+        vecOut.x = (float) vecIn0 / (bvhQuantization.x);
+        vecOut.y = (float) vecIn1 / (bvhQuantization.y);
+        vecOut.z = (float) vecIn2 / (bvhQuantization.z);
+
+        vecOut.add(bvhAabbMin);
+    }
+
 }

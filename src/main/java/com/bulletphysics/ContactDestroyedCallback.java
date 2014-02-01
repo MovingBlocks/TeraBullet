@@ -26,11 +26,11 @@ package com.bulletphysics;
 /**
  * Called when contact has been destroyed between two collision objects.
  *
- * @see BulletGlobals#setContactDestroyedCallback
  * @author jezek2
+ * @see BulletGlobals#setContactDestroyedCallback
  */
 public abstract class ContactDestroyedCallback {
 
-	public abstract boolean contactDestroyed(Object userPersistentData);
-	
+    public abstract boolean contactDestroyed(Object userPersistentData);
+
 }

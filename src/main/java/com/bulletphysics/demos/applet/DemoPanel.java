@@ -28,190 +28,207 @@ import org.lwjgl.input.Keyboard;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
 import java.awt.image.BufferedImage;
 
 /**
- *
  * @author jezek2
  */
 public class DemoPanel extends JPanel {
 
-	private DemoApplication demoApp;
-	private boolean inited = false;
-	private BufferedImage img;
-	private SoftwareGL sgl;
-	private Timer timer;
-	private Font font = new Font("DialogInput", Font.PLAIN, 10);
-	private AlphaComposite overlayComposite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f);
-	private Color overlayColor = new Color(0.6f, 0.6f, 0.6f, 1f);
+    private DemoApplication demoApp;
+    private boolean inited = false;
+    private BufferedImage img;
+    private SoftwareGL sgl;
+    private Timer timer;
+    private Font font = new Font("DialogInput", Font.PLAIN, 10);
+    private AlphaComposite overlayComposite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f);
+    private Color overlayColor = new Color(0.6f, 0.6f, 0.6f, 1f);
 
-	public DemoPanel() {
-		sgl = new SoftwareGL();
-		
-		img = new BufferedImage(320, 240, BufferedImage.TYPE_INT_RGB);
-		sgl.init(img);
-		
-		setFocusable(true);
-		requestFocusInWindow();
-		
-		MouseHandler mh = new MouseHandler();
-		addMouseListener(mh);
-		addMouseMotionListener(mh);
-		
-		addKeyListener(new KeyListener() {
-			public void keyTyped(KeyEvent e) {
-				if (e.getKeyChar() != KeyEvent.CHAR_UNDEFINED) {
-					if (demoApp != null) demoApp.keyboardCallback(e.getKeyChar(), 0, 0, e.getModifiersEx());
-				}
-				
-				repaint();
-			}
+    public DemoPanel() {
+        sgl = new SoftwareGL();
 
-			public void keyPressed(KeyEvent e) {
-				if (demoApp != null) demoApp.specialKeyboard(convertKey(e.getKeyCode()), 0, 0, e.getModifiersEx());
-				repaint();
-			}
+        img = new BufferedImage(320, 240, BufferedImage.TYPE_INT_RGB);
+        sgl.init(img);
 
-			public void keyReleased(KeyEvent e) {
-				if (demoApp != null) demoApp.specialKeyboardUp(convertKey(e.getKeyCode()), 0, 0, e.getModifiersEx());
-				repaint();
-			}
-			
-			private int convertKey(int code) {
-				int key = 0;
-				switch (code) {
-					case KeyEvent.VK_LEFT: key = Keyboard.KEY_LEFT; break;
-					case KeyEvent.VK_RIGHT: key = Keyboard.KEY_RIGHT; break;
-					case KeyEvent.VK_UP: key = Keyboard.KEY_UP; break;
-					case KeyEvent.VK_DOWN: key = Keyboard.KEY_DOWN; break;
-					case KeyEvent.VK_F5: key = Keyboard.KEY_F5; break;
-				}
-				return key;
-			}
-		});
-		
-		addComponentListener(new ComponentListener() {
-			public void componentResized(ComponentEvent e) {
-				if (img != null) {
-					img.flush();
-				}
-				
-				img = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_RGB);
-				sgl.init(img);
-				if (demoApp != null) demoApp.reshape(getWidth(), getHeight());
-				repaint();
-			}
+        setFocusable(true);
+        requestFocusInWindow();
 
-			public void componentMoved(ComponentEvent e) {
-			}
+        MouseHandler mh = new MouseHandler();
+        addMouseListener(mh);
+        addMouseMotionListener(mh);
 
-			public void componentShown(ComponentEvent e) {
-			}
+        addKeyListener(new KeyListener() {
+            public void keyTyped(KeyEvent e) {
+                if (e.getKeyChar() != KeyEvent.CHAR_UNDEFINED) {
+                    if (demoApp != null) demoApp.keyboardCallback(e.getKeyChar(), 0, 0, e.getModifiersEx());
+                }
 
-			public void componentHidden(ComponentEvent e) {
-			}
-		});
-		
-		timer = new Timer(20, new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				repaint();
-			}
-		});
-	}
+                repaint();
+            }
 
-	public IGL getGL() {
-		return sgl;
-	}
-	
-	public void runDemo(DemoApplication app) {
-		if (demoApp != null) {
-			demoApp.destroy();
-		}
-		
-		if (app == null) {
-			timer.stop();
-		}
-		
-		demoApp = app;
-		demoApp.getDynamicsWorld().setDebugDrawer(new GLDebugDrawer(sgl));
-		inited = false;
-		timer.start();
-	}
-	
-	@Override
-	public void paint(Graphics g) {
-		Graphics2D g2 = (Graphics2D)g;
-		g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
-		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+            public void keyPressed(KeyEvent e) {
+                if (demoApp != null) demoApp.specialKeyboard(convertKey(e.getKeyCode()), 0, 0, e.getModifiersEx());
+                repaint();
+            }
 
-		long t0 = System.nanoTime();
-		if (demoApp != null) {
-			if (!inited) {
-				demoApp.myinit();
-				demoApp.reshape(img.getWidth(), img.getHeight());
-			}
-			inited = true;
-			
-			BulletStats.updateTime = 0;
-			demoApp.clientMoveAndDisplay();
-		}
-		
-		g.drawImage(img, 0, 0, null);
-		
-		if (demoApp != null) {
-			long time = (System.nanoTime() - t0) / 1000000;
+            public void keyReleased(KeyEvent e) {
+                if (demoApp != null) demoApp.specialKeyboardUp(convertKey(e.getKeyCode()), 0, 0, e.getModifiersEx());
+                repaint();
+            }
 
-			long physicsTime = BulletStats.stepSimulationTime;
-			long updateTime = BulletStats.updateTime;
-			long renderTime = time - physicsTime - updateTime;
+            private int convertKey(int code) {
+                int key = 0;
+                switch (code) {
+                    case KeyEvent.VK_LEFT:
+                        key = Keyboard.KEY_LEFT;
+                        break;
+                    case KeyEvent.VK_RIGHT:
+                        key = Keyboard.KEY_RIGHT;
+                        break;
+                    case KeyEvent.VK_UP:
+                        key = Keyboard.KEY_UP;
+                        break;
+                    case KeyEvent.VK_DOWN:
+                        key = Keyboard.KEY_DOWN;
+                        break;
+                    case KeyEvent.VK_F5:
+                        key = Keyboard.KEY_F5;
+                        break;
+                }
+                return key;
+            }
+        });
 
-			Composite comp = g2.getComposite();
-			g2.setComposite(overlayComposite);
-			g.setColor(overlayColor);
-			g.fillRect(getWidth()-135, getHeight()-53, 130, 50);
-			g2.setComposite(comp);
-			
-			g.setFont(font);
-			g.setColor(Color.BLACK);
+        addComponentListener(new ComponentListener() {
+            public void componentResized(ComponentEvent e) {
+                if (img != null) {
+                    img.flush();
+                }
 
-			g.drawString(" Render time: "+renderTime+" ms", getWidth()-130, getHeight()-40);
-			g.drawString("Physics time: "+physicsTime+" ms", getWidth()-130, getHeight()-25);
-			g.drawString(" Update time: "+updateTime+" ms", getWidth()-130, getHeight()-10);
-		}
-	}
-	
-	private class MouseHandler implements MouseListener, MouseMotionListener {
-		public void mouseClicked(MouseEvent e) {
-		}
+                img = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_RGB);
+                sgl.init(img);
+                if (demoApp != null) demoApp.reshape(getWidth(), getHeight());
+                repaint();
+            }
 
-		public void mouseEntered(MouseEvent e) {
-		}
+            public void componentMoved(ComponentEvent e) {
+            }
 
-		public void mouseExited(MouseEvent e) {
-		}
+            public void componentShown(ComponentEvent e) {
+            }
 
-		public void mousePressed(MouseEvent e) {
-			if (demoApp != null) demoApp.mouseFunc(e.getButton()-1, 0, e.getX(), /*img.getHeight() - 1 -*/ e.getY());
-			repaint();
-			
-			if (!hasFocus()) {
-				requestFocusInWindow();
-			}
-		}
+            public void componentHidden(ComponentEvent e) {
+            }
+        });
 
-		public void mouseReleased(MouseEvent e) {
-			if (demoApp != null) demoApp.mouseFunc(e.getButton()-1, 1, e.getX(), /*img.getHeight() - 1 -*/ e.getY());
-			repaint();
-		}
+        timer = new Timer(20, new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                repaint();
+            }
+        });
+    }
 
-		public void mouseDragged(MouseEvent e) {
-			if (demoApp != null) demoApp.mouseMotionFunc(e.getX(), /*img.getHeight() - 1 -*/ e.getY());
-			repaint();
-		}
+    public IGL getGL() {
+        return sgl;
+    }
 
-		public void mouseMoved(MouseEvent e) {
-		}
-	}
+    public void runDemo(DemoApplication app) {
+        if (demoApp != null) {
+            demoApp.destroy();
+        }
+
+        if (app == null) {
+            timer.stop();
+        }
+
+        demoApp = app;
+        demoApp.getDynamicsWorld().setDebugDrawer(new GLDebugDrawer(sgl));
+        inited = false;
+        timer.start();
+    }
+
+    @Override
+    public void paint(Graphics g) {
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+
+        long t0 = System.nanoTime();
+        if (demoApp != null) {
+            if (!inited) {
+                demoApp.myinit();
+                demoApp.reshape(img.getWidth(), img.getHeight());
+            }
+            inited = true;
+
+            BulletStats.updateTime = 0;
+            demoApp.clientMoveAndDisplay();
+        }
+
+        g.drawImage(img, 0, 0, null);
+
+        if (demoApp != null) {
+            long time = (System.nanoTime() - t0) / 1000000;
+
+            long physicsTime = BulletStats.stepSimulationTime;
+            long updateTime = BulletStats.updateTime;
+            long renderTime = time - physicsTime - updateTime;
+
+            Composite comp = g2.getComposite();
+            g2.setComposite(overlayComposite);
+            g.setColor(overlayColor);
+            g.fillRect(getWidth() - 135, getHeight() - 53, 130, 50);
+            g2.setComposite(comp);
+
+            g.setFont(font);
+            g.setColor(Color.BLACK);
+
+            g.drawString(" Render time: " + renderTime + " ms", getWidth() - 130, getHeight() - 40);
+            g.drawString("Physics time: " + physicsTime + " ms", getWidth() - 130, getHeight() - 25);
+            g.drawString(" Update time: " + updateTime + " ms", getWidth() - 130, getHeight() - 10);
+        }
+    }
+
+    private class MouseHandler implements MouseListener, MouseMotionListener {
+        public void mouseClicked(MouseEvent e) {
+        }
+
+        public void mouseEntered(MouseEvent e) {
+        }
+
+        public void mouseExited(MouseEvent e) {
+        }
+
+        public void mousePressed(MouseEvent e) {
+            if (demoApp != null) demoApp.mouseFunc(e.getButton() - 1, 0, e.getX(), /*img.getHeight() - 1 -*/ e.getY());
+            repaint();
+
+            if (!hasFocus()) {
+                requestFocusInWindow();
+            }
+        }
+
+        public void mouseReleased(MouseEvent e) {
+            if (demoApp != null) demoApp.mouseFunc(e.getButton() - 1, 1, e.getX(), /*img.getHeight() - 1 -*/ e.getY());
+            repaint();
+        }
+
+        public void mouseDragged(MouseEvent e) {
+            if (demoApp != null) demoApp.mouseMotionFunc(e.getX(), /*img.getHeight() - 1 -*/ e.getY());
+            repaint();
+        }
+
+        public void mouseMoved(MouseEvent e) {
+        }
+    }
 
 }

@@ -21,29 +21,28 @@
 package com.bulletphysics.demos.applet;
 
 /**
- *
  * @author jezek2
  */
 class Span {
 
-	public int x1, x2;
-	public float z1, z2;
-	public short c1r, c1g, c1b;
-	public short c2r, c2g, c2b;
-	
-	public Span prev, next;
-	
-	public void set(Span s) {
-		x1 = s.x1;
-		x2 = s.x2;
-		z1 = s.z1;
-		z2 = s.z2;
-		c1r = s.c1r;
-		c1g = s.c1g;
-		c1b = s.c1b;
-		c2r = s.c2r;
-		c2g = s.c2g;
-		c2b = s.c2b;
-	}
-	
+    public int x1, x2;
+    public float z1, z2;
+    public short c1r, c1g, c1b;
+    public short c2r, c2g, c2b;
+
+    public Span prev, next;
+
+    public void set(Span s) {
+        x1 = s.x1;
+        x2 = s.x2;
+        z1 = s.z1;
+        z2 = s.z2;
+        c1r = s.c1r;
+        c1g = s.c1g;
+        c1b = s.c1b;
+        c2r = s.c2r;
+        c2g = s.c2g;
+        c2b = s.c2b;
+    }
+
 }

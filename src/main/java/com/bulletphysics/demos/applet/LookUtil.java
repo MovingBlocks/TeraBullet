@@ -24,38 +24,37 @@ import javax.swing.*;
 import java.awt.*;
 
 /**
- *
  * @author jezek2
  */
 public class LookUtil {
-	
-	private static Object oldAA = null;
-	
-	public static void pushAntialias(Graphics2D g2) {
-		oldAA = g2.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
-		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-	}
-	
-	public static void popAntialias(Graphics2D g2) {
-		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, oldAA);
-		oldAA = null;
-	}
-	
-	public static boolean isXP() {
-		if (isWindows()) {
-			Boolean b = (Boolean)Toolkit.getDefaultToolkit().getDesktopProperty("win.xpstyle.themeActive");
-			if (b != null && b) return true;
-		}
-		
-		return false;
-	}
-	
-	public static boolean isWindows() {
-		Object laf = UIManager.getLookAndFeel();
-		if (laf.getClass().getName().equals("com.sun.java.swing.plaf.windows.WindowsLookAndFeel")) {
-			return true;
-		}
-		return false;
-	}
-	
+
+    private static Object oldAA = null;
+
+    public static void pushAntialias(Graphics2D g2) {
+        oldAA = g2.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+    }
+
+    public static void popAntialias(Graphics2D g2) {
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, oldAA);
+        oldAA = null;
+    }
+
+    public static boolean isXP() {
+        if (isWindows()) {
+            Boolean b = (Boolean) Toolkit.getDefaultToolkit().getDesktopProperty("win.xpstyle.themeActive");
+            if (b != null && b) return true;
+        }
+
+        return false;
+    }
+
+    public static boolean isWindows() {
+        Object laf = UIManager.getLookAndFeel();
+        if (laf.getClass().getName().equals("com.sun.java.swing.plaf.windows.WindowsLookAndFeel")) {
+            return true;
+        }
+        return false;
+    }
+
 }

@@ -28,7 +28,6 @@ import com.bulletphysics.collision.broadphase.BroadphaseNativeType;
 import com.bulletphysics.linearmath.MatrixUtil;
 import com.bulletphysics.linearmath.Transform;
 import com.bulletphysics.linearmath.VectorUtil;
-import cz.advel.stack.Stack;
 
 import javax.vecmath.Matrix3f;
 import javax.vecmath.Vector3f;
@@ -37,174 +36,173 @@ import javax.vecmath.Vector3f;
  * CapsuleShape represents a capsule around the Y axis, there is also the
  * {@link CapsuleShapeX} aligned around the X axis and {@link CapsuleShapeZ} around
  * the Z axis.<p>
- *
+ * <p/>
  * The total height is height+2*radius, so the height is just the height between
  * the center of each "sphere" of the capsule caps.<p>
- *
+ * <p/>
  * CapsuleShape is a convex hull of two spheres. The {@link MultiSphereShape} is
  * a more general collision shape that takes the convex hull of multiple sphere,
  * so it can also represent a capsule when just using two spheres.
- * 
+ *
  * @author jezek2
  */
 public class CapsuleShape extends ConvexInternalShape {
-	
-	protected int upAxis;
 
-	// only used for CapsuleShapeZ and CapsuleShapeX subclasses.
-	CapsuleShape() {
-	}
-	
-	public CapsuleShape(float radius, float height) {
-		upAxis = 1;
-		implicitShapeDimensions.set(radius, 0.5f * height, radius);
-	}
+    protected int upAxis;
 
-	@Override
-	public Vector3f localGetSupportingVertexWithoutMargin(Vector3f vec0, Vector3f out) {
-		Vector3f supVec = out;
-		supVec.set(0f, 0f, 0f);
+    // only used for CapsuleShapeZ and CapsuleShapeX subclasses.
+    CapsuleShape() {
+    }
 
-		float maxDot = -1e30f;
+    public CapsuleShape(float radius, float height) {
+        upAxis = 1;
+        implicitShapeDimensions.set(radius, 0.5f * height, radius);
+    }
 
-		Vector3f vec = Stack.alloc(vec0);
-		float lenSqr = vec.lengthSquared();
-		if (lenSqr < 0.0001f) {
-			vec.set(1f, 0f, 0f);
-		}
-		else {
-			float rlen = 1f / (float) Math.sqrt(lenSqr);
-			vec.scale(rlen);
-		}
+    @Override
+    public Vector3f localGetSupportingVertexWithoutMargin(Vector3f vec0, Vector3f out) {
+        Vector3f supVec = out;
+        supVec.set(0f, 0f, 0f);
 
-		Vector3f vtx = Stack.alloc(Vector3f.class);
-		float newDot;
+        float maxDot = -1e30f;
 
-		float radius = getRadius();
+        Vector3f vec = new Vector3f(vec0);
+        float lenSqr = vec.lengthSquared();
+        if (lenSqr < 0.0001f) {
+            vec.set(1f, 0f, 0f);
+        } else {
+            float rlen = 1f / (float) Math.sqrt(lenSqr);
+            vec.scale(rlen);
+        }
 
-		Vector3f tmp1 = Stack.alloc(Vector3f.class);
-		Vector3f tmp2 = Stack.alloc(Vector3f.class);
-		Vector3f pos = Stack.alloc(Vector3f.class);
+        Vector3f vtx = new Vector3f();
+        float newDot;
 
-		{
-			pos.set(0f, 0f, 0f);
-			VectorUtil.setCoord(pos, getUpAxis(), getHalfHeight());
-			
-			VectorUtil.mul(tmp1, vec, localScaling);
-			tmp1.scale(radius);
-			tmp2.scale(getMargin(), vec);
-			vtx.add(pos, tmp1);
-			vtx.sub(tmp2);
-			newDot = vec.dot(vtx);
-			if (newDot > maxDot) {
-				maxDot = newDot;
-				supVec.set(vtx);
-			}
-		}
-		{
-			pos.set(0f, 0f, 0f);
-			VectorUtil.setCoord(pos, getUpAxis(), -getHalfHeight());
-			
-			VectorUtil.mul(tmp1, vec, localScaling);
-			tmp1.scale(radius);
-			tmp2.scale(getMargin(), vec);
-			vtx.add(pos, tmp1);
-			vtx.sub(tmp2);
-			newDot = vec.dot(vtx);
-			if (newDot > maxDot) {
-				maxDot = newDot;
-				supVec.set(vtx);
-			}
-		}
+        float radius = getRadius();
 
-		return out;
-	}
+        Vector3f tmp1 = new Vector3f();
+        Vector3f tmp2 = new Vector3f();
+        Vector3f pos = new Vector3f();
 
-	@Override
-	public void batchedUnitVectorGetSupportingVertexWithoutMargin(Vector3f[] vectors, Vector3f[] supportVerticesOut, int numVectors) {
-		// TODO: implement
-		throw new UnsupportedOperationException("Not supported yet.");
-	}
+        {
+            pos.set(0f, 0f, 0f);
+            VectorUtil.setCoord(pos, getUpAxis(), getHalfHeight());
 
-	@Override
-	public void calculateLocalInertia(float mass, Vector3f inertia) {
-		// as an approximation, take the inertia of the box that bounds the spheres
+            VectorUtil.mul(tmp1, vec, localScaling);
+            tmp1.scale(radius);
+            tmp2.scale(getMargin(), vec);
+            vtx.add(pos, tmp1);
+            vtx.sub(tmp2);
+            newDot = vec.dot(vtx);
+            if (newDot > maxDot) {
+                maxDot = newDot;
+                supVec.set(vtx);
+            }
+        }
+        {
+            pos.set(0f, 0f, 0f);
+            VectorUtil.setCoord(pos, getUpAxis(), -getHalfHeight());
 
-		Transform ident = Stack.alloc(Transform.class);
-		ident.setIdentity();
+            VectorUtil.mul(tmp1, vec, localScaling);
+            tmp1.scale(radius);
+            tmp2.scale(getMargin(), vec);
+            vtx.add(pos, tmp1);
+            vtx.sub(tmp2);
+            newDot = vec.dot(vtx);
+            if (newDot > maxDot) {
+                maxDot = newDot;
+                supVec.set(vtx);
+            }
+        }
 
-		float radius = getRadius();
+        return out;
+    }
 
-		Vector3f halfExtents = Stack.alloc(Vector3f.class);
-		halfExtents.set(radius, radius, radius);
-		VectorUtil.setCoord(halfExtents, getUpAxis(), radius + getHalfHeight());
+    @Override
+    public void batchedUnitVectorGetSupportingVertexWithoutMargin(Vector3f[] vectors, Vector3f[] supportVerticesOut, int numVectors) {
+        // TODO: implement
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
 
-		float margin = BulletGlobals.CONVEX_DISTANCE_MARGIN;
+    @Override
+    public void calculateLocalInertia(float mass, Vector3f inertia) {
+        // as an approximation, take the inertia of the box that bounds the spheres
 
-		float lx = 2f * (halfExtents.x + margin);
-		float ly = 2f * (halfExtents.y + margin);
-		float lz = 2f * (halfExtents.z + margin);
-		float x2 = lx * lx;
-		float y2 = ly * ly;
-		float z2 = lz * lz;
-		float scaledmass = mass * 0.08333333f;
+        Transform ident = new Transform();
+        ident.setIdentity();
 
-		inertia.x = scaledmass * (y2 + z2);
-		inertia.y = scaledmass * (x2 + z2);
-		inertia.z = scaledmass * (x2 + y2);
-	}
+        float radius = getRadius();
 
-	@Override
-	public BroadphaseNativeType getShapeType() {
-		return BroadphaseNativeType.CAPSULE_SHAPE_PROXYTYPE;
-	}
-	
-	@Override
-	public void getAabb(Transform t, Vector3f aabbMin, Vector3f aabbMax) {
-		Vector3f tmp = Stack.alloc(Vector3f.class);
+        Vector3f halfExtents = new Vector3f();
+        halfExtents.set(radius, radius, radius);
+        VectorUtil.setCoord(halfExtents, getUpAxis(), radius + getHalfHeight());
 
-		Vector3f halfExtents = Stack.alloc(Vector3f.class);
-		halfExtents.set(getRadius(), getRadius(), getRadius());
-		VectorUtil.setCoord(halfExtents, upAxis, getRadius() + getHalfHeight());
+        float margin = BulletGlobals.CONVEX_DISTANCE_MARGIN;
 
-		halfExtents.x += getMargin();
-		halfExtents.y += getMargin();
-		halfExtents.z += getMargin();
+        float lx = 2f * (halfExtents.x + margin);
+        float ly = 2f * (halfExtents.y + margin);
+        float lz = 2f * (halfExtents.z + margin);
+        float x2 = lx * lx;
+        float y2 = ly * ly;
+        float z2 = lz * lz;
+        float scaledmass = mass * 0.08333333f;
 
-		Matrix3f abs_b = Stack.alloc(Matrix3f.class);
-		abs_b.set(t.basis);
-		MatrixUtil.absolute(abs_b);
+        inertia.x = scaledmass * (y2 + z2);
+        inertia.y = scaledmass * (x2 + z2);
+        inertia.z = scaledmass * (x2 + y2);
+    }
 
-		Vector3f center = t.origin;
-		Vector3f extent = Stack.alloc(Vector3f.class);
+    @Override
+    public BroadphaseNativeType getShapeType() {
+        return BroadphaseNativeType.CAPSULE_SHAPE_PROXYTYPE;
+    }
 
-		abs_b.getRow(0, tmp);
-		extent.x = tmp.dot(halfExtents);
-		abs_b.getRow(1, tmp);
-		extent.y = tmp.dot(halfExtents);
-		abs_b.getRow(2, tmp);
-		extent.z = tmp.dot(halfExtents);
+    @Override
+    public void getAabb(Transform t, Vector3f aabbMin, Vector3f aabbMax) {
+        Vector3f tmp = new Vector3f();
 
-		aabbMin.sub(center, extent);
-		aabbMax.add(center, extent);
-	}
+        Vector3f halfExtents = new Vector3f();
+        halfExtents.set(getRadius(), getRadius(), getRadius());
+        VectorUtil.setCoord(halfExtents, upAxis, getRadius() + getHalfHeight());
 
-	@Override
-	public String getName() {
-		return "CapsuleShape";
-	}
-	
-	public int getUpAxis() {
-		return upAxis;
-	}
-	
-	public float getRadius() {
-		int radiusAxis = (upAxis + 2) % 3;
-		return VectorUtil.getCoord(implicitShapeDimensions, radiusAxis);
-	}
+        halfExtents.x += getMargin();
+        halfExtents.y += getMargin();
+        halfExtents.z += getMargin();
 
-	public float getHalfHeight() {
-		return VectorUtil.getCoord(implicitShapeDimensions, upAxis);
-	}
+        Matrix3f abs_b = new Matrix3f();
+        abs_b.set(t.basis);
+        MatrixUtil.absolute(abs_b);
+
+        Vector3f center = t.origin;
+        Vector3f extent = new Vector3f();
+
+        abs_b.getRow(0, tmp);
+        extent.x = tmp.dot(halfExtents);
+        abs_b.getRow(1, tmp);
+        extent.y = tmp.dot(halfExtents);
+        abs_b.getRow(2, tmp);
+        extent.z = tmp.dot(halfExtents);
+
+        aabbMin.sub(center, extent);
+        aabbMax.add(center, extent);
+    }
+
+    @Override
+    public String getName() {
+        return "CapsuleShape";
+    }
+
+    public int getUpAxis() {
+        return upAxis;
+    }
+
+    public float getRadius() {
+        int radiusAxis = (upAxis + 2) % 3;
+        return VectorUtil.getCoord(implicitShapeDimensions, radiusAxis);
+    }
+
+    public float getHalfHeight() {
+        return VectorUtil.getCoord(implicitShapeDimensions, upAxis);
+    }
 
 }

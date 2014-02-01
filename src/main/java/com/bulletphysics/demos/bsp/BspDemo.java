@@ -47,110 +47,110 @@ import static com.bulletphysics.demos.opengl.IGL.GL_DEPTH_BUFFER_BIT;
 /**
  * BspDemo shows the convex collision detection, by converting a Quake BSP file
  * into convex objects and allowing interaction with boxes.
- * 
+ *
  * @author jezek2
  */
 public class BspDemo extends DemoApplication {
 
-	private static final float CUBE_HALF_EXTENTS = 1;
-	private static final float EXTRA_HEIGHT      = -20f;
-	
-	// keep the collision shapes, for deletion/cleanup
-	public ObjectArrayList<CollisionShape> collisionShapes = new ObjectArrayList<CollisionShape>();
-	public BroadphaseInterface broadphase;
-	public CollisionDispatcher dispatcher;
-	public ConstraintSolver solver;
-	public DefaultCollisionConfiguration collisionConfiguration;
+    private static final float CUBE_HALF_EXTENTS = 1;
+    private static final float EXTRA_HEIGHT = -20f;
 
-	public BspDemo(IGL gl) {
-		super(gl);
-	}
-	
-	public void initPhysics() throws Exception {
-		cameraUp.set(0f, 0f, 1f);
-		forwardAxis = 1;
+    // keep the collision shapes, for deletion/cleanup
+    public ObjectArrayList<CollisionShape> collisionShapes = new ObjectArrayList<CollisionShape>();
+    public BroadphaseInterface broadphase;
+    public CollisionDispatcher dispatcher;
+    public ConstraintSolver solver;
+    public DefaultCollisionConfiguration collisionConfiguration;
 
-		setCameraDistance(22f);
+    public BspDemo(IGL gl) {
+        super(gl);
+    }
 
-		// Setup a Physics Simulation Environment
+    public void initPhysics() throws Exception {
+        cameraUp.set(0f, 0f, 1f);
+        forwardAxis = 1;
 
-		collisionConfiguration = new DefaultCollisionConfiguration();
-		// btCollisionShape* groundShape = new btBoxShape(btVector3(50,3,50));
-		dispatcher = new CollisionDispatcher(collisionConfiguration);
-		Vector3f worldMin = new Vector3f(-1000f,-1000f,-1000f);
-		Vector3f worldMax = new Vector3f(1000f,1000f,1000f);
-		//broadphase = new AxisSweep3(worldMin, worldMax);
-		//broadphase = new SimpleBroadphase();
-		broadphase = new DbvtBroadphase();
-		//btOverlappingPairCache* broadphase = new btSimpleBroadphase();
-		solver = new SequentialImpulseConstraintSolver();
-		//ConstraintSolver* solver = new OdeConstraintSolver;
-		dynamicsWorld = new DiscreteDynamicsWorld(dispatcher,broadphase,solver,collisionConfiguration);
+        setCameraDistance(22f);
 
-		Vector3f gravity = new Vector3f();
-		gravity.negate(cameraUp);
-		gravity.scale(10f);
-		dynamicsWorld.setGravity(gravity);
+        // Setup a Physics Simulation Environment
 
-		new BspToBulletConverter().convertBsp(getClass().getResourceAsStream("exported.bsp.txt"));
-		
-		clientResetScene();
-	}
-	
-	@Override
-	public void clientMoveAndDisplay() {
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
-		float dt = getDeltaTimeMicroseconds() * 0.000001f;
+        collisionConfiguration = new DefaultCollisionConfiguration();
+        // btCollisionShape* groundShape = new btBoxShape(btVector3(50,3,50));
+        dispatcher = new CollisionDispatcher(collisionConfiguration);
+        Vector3f worldMin = new Vector3f(-1000f, -1000f, -1000f);
+        Vector3f worldMax = new Vector3f(1000f, 1000f, 1000f);
+        //broadphase = new AxisSweep3(worldMin, worldMax);
+        //broadphase = new SimpleBroadphase();
+        broadphase = new DbvtBroadphase();
+        //btOverlappingPairCache* broadphase = new btSimpleBroadphase();
+        solver = new SequentialImpulseConstraintSolver();
+        //ConstraintSolver* solver = new OdeConstraintSolver;
+        dynamicsWorld = new DiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
 
-		dynamicsWorld.stepSimulation(dt);
+        Vector3f gravity = new Vector3f();
+        gravity.negate(cameraUp);
+        gravity.scale(10f);
+        dynamicsWorld.setGravity(gravity);
 
-		// optional but useful: debug drawing
-		dynamicsWorld.debugDrawWorld();
+        new BspToBulletConverter().convertBsp(getClass().getResourceAsStream("exported.bsp.txt"));
 
-		renderme();
+        clientResetScene();
+    }
 
-		//glFlush();
-		//glutSwapBuffers();
-	}
+    @Override
+    public void clientMoveAndDisplay() {
+        gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        float dt = getDeltaTimeMicroseconds() * 0.000001f;
 
-	@Override
-	public void displayCallback() {
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
+        dynamicsWorld.stepSimulation(dt);
 
-		renderme();
+        // optional but useful: debug drawing
+        dynamicsWorld.debugDrawWorld();
 
-		//glFlush();
-		//glutSwapBuffers();
-	}
+        renderme();
 
-	public static void main(String[] args) throws Exception {
-		BspDemo demo = new BspDemo(LWJGL.getGL());
-		demo.initPhysics();
-		demo.getDynamicsWorld().setDebugDrawer(new GLDebugDrawer(LWJGL.getGL()));
+        //glFlush();
+        //glutSwapBuffers();
+    }
 
-		LWJGL.main(args, 800, 600, "Bullet Physics Demo. http://bullet.sf.net", demo);
-	}
-	
-	////////////////////////////////////////////////////////////////////////////
-	
-	private class BspToBulletConverter extends BspConverter {
-		@Override
-		public void addConvexVerticesCollider(ObjectArrayList<Vector3f> vertices) {
-			if (vertices.size() > 0) {
-				float mass = 0f;
-				Transform startTransform = new Transform();
-				// can use a shift
-				startTransform.setIdentity();
-				startTransform.origin.set(0, 0, -10f);
-				
-				// this create an internal copy of the vertices
-				CollisionShape shape = new ConvexHullShape(vertices);
-				collisionShapes.add(shape);
+    @Override
+    public void displayCallback() {
+        gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-				//btRigidBody* body = m_demoApp->localCreateRigidBody(mass, startTransform,shape);
-				localCreateRigidBody(mass, startTransform, shape);
-			}
-		}
-	}
-	
+        renderme();
+
+        //glFlush();
+        //glutSwapBuffers();
+    }
+
+    public static void main(String[] args) throws Exception {
+        BspDemo demo = new BspDemo(LWJGL.getGL());
+        demo.initPhysics();
+        demo.getDynamicsWorld().setDebugDrawer(new GLDebugDrawer(LWJGL.getGL()));
+
+        LWJGL.main(args, 800, 600, "Bullet Physics Demo. http://bullet.sf.net", demo);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    private class BspToBulletConverter extends BspConverter {
+        @Override
+        public void addConvexVerticesCollider(ObjectArrayList<Vector3f> vertices) {
+            if (vertices.size() > 0) {
+                float mass = 0f;
+                Transform startTransform = new Transform();
+                // can use a shift
+                startTransform.setIdentity();
+                startTransform.origin.set(0, 0, -10f);
+
+                // this create an internal copy of the vertices
+                CollisionShape shape = new ConvexHullShape(vertices);
+                collisionShapes.add(shape);
+
+                //btRigidBody* body = m_demoApp->localCreateRigidBody(mass, startTransform,shape);
+                localCreateRigidBody(mass, startTransform, shape);
+            }
+        }
+    }
+
 }

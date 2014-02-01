@@ -23,16 +23,14 @@
 
 package com.bulletphysics.collision.shapes.voxel;
 
-import com.bulletphysics.collision.shapes.CollisionShape;
-
 /**
  * Interface for the provider of Voxel physics information. Primarily it has to provide what collider is present in each
  * grid cell.
+ *
  * @author Immortius
  */
 public interface VoxelPhysicsWorld {
     /**
-     *
      * @param x
      * @param y
      * @param z

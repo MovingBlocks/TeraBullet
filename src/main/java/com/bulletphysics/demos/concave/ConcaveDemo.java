@@ -33,7 +33,13 @@ import com.bulletphysics.collision.dispatch.CollisionFlags;
 import com.bulletphysics.collision.dispatch.CollisionObject;
 import com.bulletphysics.collision.dispatch.DefaultCollisionConfiguration;
 import com.bulletphysics.collision.narrowphase.ManifoldPoint;
-import com.bulletphysics.collision.shapes.*;
+import com.bulletphysics.collision.shapes.BoxShape;
+import com.bulletphysics.collision.shapes.BvhTriangleMeshShape;
+import com.bulletphysics.collision.shapes.CollisionShape;
+import com.bulletphysics.collision.shapes.CompoundShape;
+import com.bulletphysics.collision.shapes.CylinderShapeX;
+import com.bulletphysics.collision.shapes.OptimizedBvh;
+import com.bulletphysics.collision.shapes.TriangleIndexVertexArray;
 import com.bulletphysics.demos.opengl.DemoApplication;
 import com.bulletphysics.demos.opengl.GLDebugDrawer;
 import com.bulletphysics.demos.opengl.IGL;
@@ -49,7 +55,12 @@ import org.lwjgl.LWJGLException;
 
 import javax.vecmath.Quat4f;
 import javax.vecmath.Vector3f;
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.zip.GZIPInputStream;
@@ -61,167 +72,161 @@ import static com.bulletphysics.demos.opengl.IGL.GL_DEPTH_BUFFER_BIT;
 // JAVA TODO: update for 2.70b1
 
 /**
- *
  * @author jezek2
  */
 public class ConcaveDemo extends DemoApplication {
 
-	// enable to test serialization of BVH to speedup loading:
-	private static final boolean TEST_SERIALIZATION = false;
-	// set to false to read the BVH from disk (first run the demo once to create the BVH):
-	private static final boolean SERIALIZE_TO_DISK  = true;
+    // enable to test serialization of BVH to speedup loading:
+    private static final boolean TEST_SERIALIZATION = false;
+    // set to false to read the BVH from disk (first run the demo once to create the BVH):
+    private static final boolean SERIALIZE_TO_DISK = true;
 
-	private static final boolean USE_BOX_SHAPE = false;
+    private static final boolean USE_BOX_SHAPE = false;
 
-	// keep the collision shapes, for deletion/cleanup
-	private ObjectArrayList<CollisionShape> collisionShapes = new ObjectArrayList<CollisionShape>();
-	private TriangleIndexVertexArray indexVertexArrays;
-	private BroadphaseInterface broadphase;
-	private CollisionDispatcher dispatcher;
-	private ConstraintSolver solver;
-	private DefaultCollisionConfiguration collisionConfiguration;
-	private boolean animatedMesh = false;
-	
-	private static ByteBuffer gVertices;
-	private static ByteBuffer gIndices;
-	private static BvhTriangleMeshShape trimeshShape;
-	private static RigidBody staticBody;
-	private static float waveheight = 5.f;
+    // keep the collision shapes, for deletion/cleanup
+    private ObjectArrayList<CollisionShape> collisionShapes = new ObjectArrayList<CollisionShape>();
+    private TriangleIndexVertexArray indexVertexArrays;
+    private BroadphaseInterface broadphase;
+    private CollisionDispatcher dispatcher;
+    private ConstraintSolver solver;
+    private DefaultCollisionConfiguration collisionConfiguration;
+    private boolean animatedMesh = false;
 
-	private static final float TRIANGLE_SIZE=8.f;
-	private static int NUM_VERTS_X = 30;
-	private static int NUM_VERTS_Y = 30;
-	private static int totalVerts = NUM_VERTS_X*NUM_VERTS_Y;
+    private static ByteBuffer gVertices;
+    private static ByteBuffer gIndices;
+    private static BvhTriangleMeshShape trimeshShape;
+    private static RigidBody staticBody;
+    private static float waveheight = 5.f;
 
-	public ConcaveDemo(IGL gl) {
-		super(gl);
-	}
+    private static final float TRIANGLE_SIZE = 8.f;
+    private static int NUM_VERTS_X = 30;
+    private static int NUM_VERTS_Y = 30;
+    private static int totalVerts = NUM_VERTS_X * NUM_VERTS_Y;
 
-	public void setVertexPositions(float waveheight, float offset) {
-		int i;
-		int j;
-		Vector3f tmp = new Vector3f();
+    public ConcaveDemo(IGL gl) {
+        super(gl);
+    }
 
-		for (i = 0; i < NUM_VERTS_X; i++) {
-			for (j = 0; j < NUM_VERTS_Y; j++) {
-				tmp.set(
-						(i - NUM_VERTS_X * 0.5f) * TRIANGLE_SIZE,
-						//0.f,
-						waveheight * (float) Math.sin((float) i + offset) * (float) Math.cos((float) j + offset),
-						(j - NUM_VERTS_Y * 0.5f) * TRIANGLE_SIZE);
+    public void setVertexPositions(float waveheight, float offset) {
+        int i;
+        int j;
+        Vector3f tmp = new Vector3f();
 
-				int index = i + j * NUM_VERTS_X;
-				gVertices.putFloat((index*3 + 0) * 4, tmp.x);
-				gVertices.putFloat((index*3 + 1) * 4, tmp.y);
-				gVertices.putFloat((index*3 + 2) * 4, tmp.z);
-			}
-		}
-	}
+        for (i = 0; i < NUM_VERTS_X; i++) {
+            for (j = 0; j < NUM_VERTS_Y; j++) {
+                tmp.set(
+                        (i - NUM_VERTS_X * 0.5f) * TRIANGLE_SIZE,
+                        //0.f,
+                        waveheight * (float) Math.sin((float) i + offset) * (float) Math.cos((float) j + offset),
+                        (j - NUM_VERTS_Y * 0.5f) * TRIANGLE_SIZE);
 
-	@Override
-	public void keyboardCallback(char key, int x, int y, int modifiers) {
-		if (key == 'g') {
-			animatedMesh = !animatedMesh;
-			if (animatedMesh) {
-				staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.KINEMATIC_OBJECT);
-				staticBody.setActivationState(CollisionObject.DISABLE_DEACTIVATION);
-			}
-			else {
-				staticBody.setCollisionFlags(staticBody.getCollisionFlags() & ~CollisionFlags.KINEMATIC_OBJECT);
-				staticBody.forceActivationState(CollisionObject.ACTIVE_TAG);
-			}
-		}
+                int index = i + j * NUM_VERTS_X;
+                gVertices.putFloat((index * 3 + 0) * 4, tmp.x);
+                gVertices.putFloat((index * 3 + 1) * 4, tmp.y);
+                gVertices.putFloat((index * 3 + 2) * 4, tmp.z);
+            }
+        }
+    }
 
-		super.keyboardCallback(key, x, y, modifiers);
-	}
+    @Override
+    public void keyboardCallback(char key, int x, int y, int modifiers) {
+        if (key == 'g') {
+            animatedMesh = !animatedMesh;
+            if (animatedMesh) {
+                staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.KINEMATIC_OBJECT);
+                staticBody.setActivationState(CollisionObject.DISABLE_DEACTIVATION);
+            } else {
+                staticBody.setCollisionFlags(staticBody.getCollisionFlags() & ~CollisionFlags.KINEMATIC_OBJECT);
+                staticBody.forceActivationState(CollisionObject.ACTIVE_TAG);
+            }
+        }
 
-	public void initPhysics() {
-		final float TRISIZE = 10f;
+        super.keyboardCallback(key, x, y, modifiers);
+    }
 
-		BulletGlobals.setContactAddedCallback(new CustomMaterialCombinerCallback());
+    public void initPhysics() {
+        final float TRISIZE = 10f;
 
-		//#define USE_TRIMESH_SHAPE 1
-		//#ifdef USE_TRIMESH_SHAPE
+        BulletGlobals.setContactAddedCallback(new CustomMaterialCombinerCallback());
 
-		int vertStride = 3 * 4;
-		int indexStride = 3 * 4;
+        //#define USE_TRIMESH_SHAPE 1
+        //#ifdef USE_TRIMESH_SHAPE
 
-		int totalTriangles = 2 * (NUM_VERTS_X - 1) * (NUM_VERTS_Y - 1);
+        int vertStride = 3 * 4;
+        int indexStride = 3 * 4;
 
-		gVertices = ByteBuffer.allocateDirect(totalVerts * 3 * 4).order(ByteOrder.nativeOrder());
-		gIndices = ByteBuffer.allocateDirect(totalTriangles * 3 * 4).order(ByteOrder.nativeOrder());
+        int totalTriangles = 2 * (NUM_VERTS_X - 1) * (NUM_VERTS_Y - 1);
 
-		int i;
+        gVertices = ByteBuffer.allocateDirect(totalVerts * 3 * 4).order(ByteOrder.nativeOrder());
+        gIndices = ByteBuffer.allocateDirect(totalTriangles * 3 * 4).order(ByteOrder.nativeOrder());
 
-		setVertexPositions(waveheight, 0.f);
+        int i;
 
-		//int index=0;
-		gIndices.clear();
-		for (i = 0; i < NUM_VERTS_X - 1; i++) {
-			for (int j = 0; j < NUM_VERTS_Y - 1; j++) {
-				gIndices.putInt(j * NUM_VERTS_X + i);
-				gIndices.putInt(j * NUM_VERTS_X + i + 1);
-				gIndices.putInt((j + 1) * NUM_VERTS_X + i + 1);
+        setVertexPositions(waveheight, 0.f);
 
-				gIndices.putInt(j * NUM_VERTS_X + i);
-				gIndices.putInt((j + 1) * NUM_VERTS_X + i + 1);
-				gIndices.putInt((j + 1) * NUM_VERTS_X + i);
-			}
-		}
-		gIndices.flip();
+        //int index=0;
+        gIndices.clear();
+        for (i = 0; i < NUM_VERTS_X - 1; i++) {
+            for (int j = 0; j < NUM_VERTS_Y - 1; j++) {
+                gIndices.putInt(j * NUM_VERTS_X + i);
+                gIndices.putInt(j * NUM_VERTS_X + i + 1);
+                gIndices.putInt((j + 1) * NUM_VERTS_X + i + 1);
 
-		indexVertexArrays = new TriangleIndexVertexArray(totalTriangles,
-				gIndices,
-				indexStride,
-				totalVerts, gVertices, vertStride);
+                gIndices.putInt(j * NUM_VERTS_X + i);
+                gIndices.putInt((j + 1) * NUM_VERTS_X + i + 1);
+                gIndices.putInt((j + 1) * NUM_VERTS_X + i);
+            }
+        }
+        gIndices.flip();
 
-		boolean useQuantizedAabbCompression = true;
+        indexVertexArrays = new TriangleIndexVertexArray(totalTriangles,
+                gIndices,
+                indexStride,
+                totalVerts, gVertices, vertStride);
 
-		if (TEST_SERIALIZATION) {
-			if (SERIALIZE_TO_DISK) {
-				trimeshShape = new BvhTriangleMeshShape(indexVertexArrays, useQuantizedAabbCompression);
-				collisionShapes.add(trimeshShape);
+        boolean useQuantizedAabbCompression = true;
 
-				// we can serialize the BVH data
-				try {
-					ObjectOutputStream out = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(new File("bvh.bin"))));
-					out.writeObject(trimeshShape.getOptimizedBvh());
-					out.close();
-				}
-				catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-			else {
-				trimeshShape = new BvhTriangleMeshShape(indexVertexArrays, useQuantizedAabbCompression, false);
+        if (TEST_SERIALIZATION) {
+            if (SERIALIZE_TO_DISK) {
+                trimeshShape = new BvhTriangleMeshShape(indexVertexArrays, useQuantizedAabbCompression);
+                collisionShapes.add(trimeshShape);
 
-				OptimizedBvh bvh = null;
-				try {
-					ObjectInputStream in = new ObjectInputStream(new GZIPInputStream(new FileInputStream(new File("bvh.bin"))));
-					bvh = (OptimizedBvh)in.readObject();
-					in.close();
-				}
-				catch (Exception e) {
-					e.printStackTrace();
-				}
+                // we can serialize the BVH data
+                try {
+                    ObjectOutputStream out = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(new File("bvh.bin"))));
+                    out.writeObject(trimeshShape.getOptimizedBvh());
+                    out.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                trimeshShape = new BvhTriangleMeshShape(indexVertexArrays, useQuantizedAabbCompression, false);
 
-				trimeshShape.setOptimizedBvh(bvh);
-				trimeshShape.recalcLocalAabb();
-			}
-		}
-		else {
-			trimeshShape = new BvhTriangleMeshShape(indexVertexArrays, useQuantizedAabbCompression);
-			collisionShapes.add(trimeshShape);
-		}
+                OptimizedBvh bvh = null;
+                try {
+                    ObjectInputStream in = new ObjectInputStream(new GZIPInputStream(new FileInputStream(new File("bvh.bin"))));
+                    bvh = (OptimizedBvh) in.readObject();
+                    in.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
 
-		CollisionShape groundShape = trimeshShape;
+                trimeshShape.setOptimizedBvh(bvh);
+                trimeshShape.recalcLocalAabb();
+            }
+        } else {
+            trimeshShape = new BvhTriangleMeshShape(indexVertexArrays, useQuantizedAabbCompression);
+            collisionShapes.add(trimeshShape);
+        }
 
-		//#else
-		//btCollisionShape* groundShape = new btBoxShape(btVector3(50,3,50));
-		//m_collisionShapes.push_back(groundShape);
-		//#endif //USE_TRIMESH_SHAPE
+        CollisionShape groundShape = trimeshShape;
 
-		collisionConfiguration = new DefaultCollisionConfiguration();
+        //#else
+        //btCollisionShape* groundShape = new btBoxShape(btVector3(50,3,50));
+        //m_collisionShapes.push_back(groundShape);
+        //#endif //USE_TRIMESH_SHAPE
+
+        collisionConfiguration = new DefaultCollisionConfiguration();
 
 //		//#ifdef USE_PARALLEL_DISPATCHER
 //		#ifdef USE_WIN32_THREADING
@@ -242,171 +247,169 @@ public class ConcaveDemo extends DemoApplication {
 //
 //		m_dispatcher = new	SpuGatheringCollisionDispatcher(threadSupport,maxNumOutstandingTasks,m_collisionConfiguration);
 //		#else
-		dispatcher = new CollisionDispatcher(collisionConfiguration);
-		//#endif//USE_PARALLEL_DISPATCHER
+        dispatcher = new CollisionDispatcher(collisionConfiguration);
+        //#endif//USE_PARALLEL_DISPATCHER
 
-		Vector3f worldMin = new Vector3f(-1000f, -1000f, -1000f);
-		Vector3f worldMax = new Vector3f(1000f, 1000f, 1000f);
-		//broadphase = new AxisSweep3(worldMin, worldMax);
-		broadphase = new DbvtBroadphase();
-		//broadphase = new SimpleBroadphase();
-		solver = new SequentialImpulseConstraintSolver();
-		dynamicsWorld = new DiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
-		//#ifdef USE_PARALLEL_DISPATCHER
-		//m_dynamicsWorld->getDispatchInfo().m_enableSPU=true;
-		//#endif //USE_PARALLEL_DISPATCHER
+        Vector3f worldMin = new Vector3f(-1000f, -1000f, -1000f);
+        Vector3f worldMax = new Vector3f(1000f, 1000f, 1000f);
+        //broadphase = new AxisSweep3(worldMin, worldMax);
+        broadphase = new DbvtBroadphase();
+        //broadphase = new SimpleBroadphase();
+        solver = new SequentialImpulseConstraintSolver();
+        dynamicsWorld = new DiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
+        //#ifdef USE_PARALLEL_DISPATCHER
+        //m_dynamicsWorld->getDispatchInfo().m_enableSPU=true;
+        //#endif //USE_PARALLEL_DISPATCHER
 
-		// JAVA NOTE: added
-		dynamicsWorld.setDebugDrawer(new GLDebugDrawer(gl));
-		
-		float mass = 0f;
-		Transform startTransform = new Transform();
-		startTransform.setIdentity();
-		startTransform.origin.set(0f, -2f, 0f);
+        // JAVA NOTE: added
+        dynamicsWorld.setDebugDrawer(new GLDebugDrawer(gl));
 
-		CollisionShape colShape;
+        float mass = 0f;
+        Transform startTransform = new Transform();
+        startTransform.setIdentity();
+        startTransform.origin.set(0f, -2f, 0f);
 
-		if (USE_BOX_SHAPE) {
-			colShape = new BoxShape(new Vector3f(1f, 1f, 1f));
-		}
-		else {
-			colShape = new CompoundShape();
-			CollisionShape cylinderShape = new CylinderShapeX(new Vector3f(4, 1, 1));
-			CollisionShape boxShape = new BoxShape(new Vector3f(4f, 1f, 1f));
-			Transform localTransform = new Transform();
-			localTransform.setIdentity();
-			((CompoundShape)colShape).addChildShape(localTransform, boxShape);
-			Quat4f orn = new Quat4f();
-			QuaternionUtil.setEuler(orn, BulletGlobals.SIMD_HALF_PI, 0f, 0f);
-			localTransform.setRotation(orn);
-			((CompoundShape)colShape).addChildShape(localTransform, cylinderShape);
-		}
+        CollisionShape colShape;
 
-		collisionShapes.add(colShape);
+        if (USE_BOX_SHAPE) {
+            colShape = new BoxShape(new Vector3f(1f, 1f, 1f));
+        } else {
+            colShape = new CompoundShape();
+            CollisionShape cylinderShape = new CylinderShapeX(new Vector3f(4, 1, 1));
+            CollisionShape boxShape = new BoxShape(new Vector3f(4f, 1f, 1f));
+            Transform localTransform = new Transform();
+            localTransform.setIdentity();
+            ((CompoundShape) colShape).addChildShape(localTransform, boxShape);
+            Quat4f orn = new Quat4f();
+            QuaternionUtil.setEuler(orn, BulletGlobals.SIMD_HALF_PI, 0f, 0f);
+            localTransform.setRotation(orn);
+            ((CompoundShape) colShape).addChildShape(localTransform, cylinderShape);
+        }
 
-		{
-			for (i = 0; i < 10; i++) {
-				//btCollisionShape* colShape = new btCapsuleShape(0.5,2.0);//boxShape = new btSphereShape(1.f);
-				startTransform.origin.set(2f, 10f + i*2f, 1f);
-				localCreateRigidBody(1f, startTransform, colShape);
-			}
-		}
+        collisionShapes.add(colShape);
 
-		startTransform.setIdentity();
-		staticBody = localCreateRigidBody(mass, startTransform, groundShape);
+        {
+            for (i = 0; i < 10; i++) {
+                //btCollisionShape* colShape = new btCapsuleShape(0.5,2.0);//boxShape = new btSphereShape(1.f);
+                startTransform.origin.set(2f, 10f + i * 2f, 1f);
+                localCreateRigidBody(1f, startTransform, colShape);
+            }
+        }
 
-		staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.STATIC_OBJECT);
+        startTransform.setIdentity();
+        staticBody = localCreateRigidBody(mass, startTransform, groundShape);
 
-		// enable custom material callback
-		staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.CUSTOM_MATERIAL_CALLBACK);
-	}
+        staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.STATIC_OBJECT);
 
-	private static float offset = 0f;
-	
-	@Override
-	public void clientMoveAndDisplay() {
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // enable custom material callback
+        staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.CUSTOM_MATERIAL_CALLBACK);
+    }
 
-		float dt = getDeltaTimeMicroseconds() * 0.000001f;
+    private static float offset = 0f;
 
-		if (animatedMesh) {
-			long t0 = System.nanoTime();
-			
-			offset += 0.01f;
+    @Override
+    public void clientMoveAndDisplay() {
+        gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			setVertexPositions(waveheight, offset);
+        float dt = getDeltaTimeMicroseconds() * 0.000001f;
 
-			// JAVA NOTE: 2.70b1: replace with proper code
-			trimeshShape.refitTree(null, null);
+        if (animatedMesh) {
+            long t0 = System.nanoTime();
 
-			// clear all contact points involving mesh proxy. Note: this is a slow/unoptimized operation.
-			dynamicsWorld.getBroadphase().getOverlappingPairCache().cleanProxyFromPairs(staticBody.getBroadphaseHandle(), getDynamicsWorld().getDispatcher());
-			
-			BulletStats.updateTime = (System.nanoTime() - t0) / 1000000;
-		}
+            offset += 0.01f;
 
-		dynamicsWorld.stepSimulation(dt);
+            setVertexPositions(waveheight, offset);
 
-		// optional but useful: debug drawing
-		dynamicsWorld.debugDrawWorld();
+            // JAVA NOTE: 2.70b1: replace with proper code
+            trimeshShape.refitTree(null, null);
 
-		renderme();
+            // clear all contact points involving mesh proxy. Note: this is a slow/unoptimized operation.
+            dynamicsWorld.getBroadphase().getOverlappingPairCache().cleanProxyFromPairs(staticBody.getBroadphaseHandle(), getDynamicsWorld().getDispatcher());
 
-		//glFlush();
-		//glutSwapBuffers();
-	}
+            BulletStats.updateTime = (System.nanoTime() - t0) / 1000000;
+        }
 
-	@Override
-	public void displayCallback() {
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        dynamicsWorld.stepSimulation(dt);
 
-		renderme();
+        // optional but useful: debug drawing
+        dynamicsWorld.debugDrawWorld();
 
-		// optional but useful: debug drawing
-		if (dynamicsWorld != null) {
-			dynamicsWorld.debugDrawWorld();
-		}
-		
-		//glFlush();
-		//glutSwapBuffers();
-	}
+        renderme();
 
-	/**
-	 * User can override this material combiner by implementing gContactAddedCallback
-	 * and setting body0->m_collisionFlags |= btCollisionObject::customMaterialCallback
-	 */
-	private static float calculateCombinedFriction(float friction0, float friction1) {
-		float friction = friction0 * friction1;
+        //glFlush();
+        //glutSwapBuffers();
+    }
 
-		float MAX_FRICTION = 10f;
-		if (friction < -MAX_FRICTION) {
-			friction = -MAX_FRICTION;
-		}
-		if (friction > MAX_FRICTION) {
-			friction = MAX_FRICTION;
-		}
-		return friction;
-	}
+    @Override
+    public void displayCallback() {
+        gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	private static float calculateCombinedRestitution(float restitution0, float restitution1) {
-		return restitution0 * restitution1;
-	}
-	
-	private static class CustomMaterialCombinerCallback extends ContactAddedCallback {
-		public boolean contactAdded(ManifoldPoint cp, CollisionObject colObj0, int partId0, int index0, CollisionObject colObj1, int partId1, int index1) {
-			float friction0 = colObj0.getFriction();
-			float friction1 = colObj1.getFriction();
-			float restitution0 = colObj0.getRestitution();
-			float restitution1 = colObj1.getRestitution();
+        renderme();
 
-			if ((colObj0.getCollisionFlags() & CollisionFlags.CUSTOM_MATERIAL_CALLBACK) != 0) {
-				friction0 = 1f; //partId0,index0
-				restitution0 = 0f;
-			}
-			if ((colObj1.getCollisionFlags() & CollisionFlags.CUSTOM_MATERIAL_CALLBACK) != 0) {
-				if ((index1 & 1) != 0) {
-					friction1 = 1f; //partId1,index1
-				}
-				else {
-					friction1 = 0f;
-				}
-				restitution1 = 0f;
-			}
+        // optional but useful: debug drawing
+        if (dynamicsWorld != null) {
+            dynamicsWorld.debugDrawWorld();
+        }
 
-			cp.combinedFriction = calculateCombinedFriction(friction0, friction1);
-			cp.combinedRestitution = calculateCombinedRestitution(restitution0, restitution1);
+        //glFlush();
+        //glutSwapBuffers();
+    }
 
-			// this return value is currently ignored, but to be on the safe side: return false if you don't calculate friction
-			return true;
-		}
-	}
-	
-	public static void main(String[] args) throws LWJGLException {
-		ConcaveDemo concaveDemo = new ConcaveDemo(LWJGL.getGL());
-		concaveDemo.initPhysics();
-		concaveDemo.setCameraDistance(30f);
+    /**
+     * User can override this material combiner by implementing gContactAddedCallback
+     * and setting body0->m_collisionFlags |= btCollisionObject::customMaterialCallback
+     */
+    private static float calculateCombinedFriction(float friction0, float friction1) {
+        float friction = friction0 * friction1;
 
-		LWJGL.main(args, 800, 600, "Static Concave Mesh Demo", concaveDemo);
-	}
-	
+        float MAX_FRICTION = 10f;
+        if (friction < -MAX_FRICTION) {
+            friction = -MAX_FRICTION;
+        }
+        if (friction > MAX_FRICTION) {
+            friction = MAX_FRICTION;
+        }
+        return friction;
+    }
+
+    private static float calculateCombinedRestitution(float restitution0, float restitution1) {
+        return restitution0 * restitution1;
+    }
+
+    private static class CustomMaterialCombinerCallback extends ContactAddedCallback {
+        public boolean contactAdded(ManifoldPoint cp, CollisionObject colObj0, int partId0, int index0, CollisionObject colObj1, int partId1, int index1) {
+            float friction0 = colObj0.getFriction();
+            float friction1 = colObj1.getFriction();
+            float restitution0 = colObj0.getRestitution();
+            float restitution1 = colObj1.getRestitution();
+
+            if ((colObj0.getCollisionFlags() & CollisionFlags.CUSTOM_MATERIAL_CALLBACK) != 0) {
+                friction0 = 1f; //partId0,index0
+                restitution0 = 0f;
+            }
+            if ((colObj1.getCollisionFlags() & CollisionFlags.CUSTOM_MATERIAL_CALLBACK) != 0) {
+                if ((index1 & 1) != 0) {
+                    friction1 = 1f; //partId1,index1
+                } else {
+                    friction1 = 0f;
+                }
+                restitution1 = 0f;
+            }
+
+            cp.combinedFriction = calculateCombinedFriction(friction0, friction1);
+            cp.combinedRestitution = calculateCombinedRestitution(restitution0, restitution1);
+
+            // this return value is currently ignored, but to be on the safe side: return false if you don't calculate friction
+            return true;
+        }
+    }
+
+    public static void main(String[] args) throws LWJGLException {
+        ConcaveDemo concaveDemo = new ConcaveDemo(LWJGL.getGL());
+        concaveDemo.initPhysics();
+        concaveDemo.setCameraDistance(30f);
+
+        LWJGL.main(args, 800, 600, "Static Concave Mesh Demo", concaveDemo);
+    }
+
 }

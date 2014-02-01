@@ -25,34 +25,32 @@ package com.bulletphysics.util;
 
 /**
  * Stack-based object pool for arbitrary objects, returning not supported.
- * 
+ *
  * @author jezek2
  */
 public class ObjectStackList<T> extends StackList<T> {
 
-	private Class<T> cls;
-	
-	public ObjectStackList(Class<T> cls) {
-		super(false);
-		this.cls = cls;
-	}
+    private Class<T> cls;
 
-	@Override
-	protected T create() {
-		try {
-			return cls.newInstance();
-		}
-		catch (InstantiationException e) {
-			throw new IllegalStateException(e);
-		}
-		catch (IllegalAccessException e) {
-			throw new IllegalStateException(e);
-		}
-	}
+    public ObjectStackList(Class<T> cls) {
+        super(false);
+        this.cls = cls;
+    }
 
-	@Override
-	protected void copy(T dest, T src) {
-		throw new UnsupportedOperationException();
-	}
-	
+    @Override
+    protected T create() {
+        try {
+            return cls.newInstance();
+        } catch (InstantiationException e) {
+            throw new IllegalStateException(e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    protected void copy(T dest, T src) {
+        throw new UnsupportedOperationException();
+    }
+
 }

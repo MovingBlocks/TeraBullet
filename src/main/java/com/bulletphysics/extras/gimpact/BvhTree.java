@@ -29,217 +29,215 @@ package com.bulletphysics.extras.gimpact;
 
 import com.bulletphysics.extras.gimpact.BoxCollision.AABB;
 import com.bulletphysics.linearmath.VectorUtil;
-import cz.advel.stack.Stack;
 
 import javax.vecmath.Vector3f;
 
 /**
- *
  * @author jezek2
  */
 class BvhTree {
 
-	protected int num_nodes = 0;
-	protected BvhTreeNodeArray node_array = new BvhTreeNodeArray();
-	
-	protected int _calc_splitting_axis(BvhDataArray primitive_boxes, int startIndex, int endIndex) {
-		Vector3f means = Stack.alloc(Vector3f.class);
-		means.set(0f, 0f, 0f);
-		Vector3f variance = Stack.alloc(Vector3f.class);
-		variance.set(0f, 0f, 0f);
+    protected int num_nodes = 0;
+    protected BvhTreeNodeArray node_array = new BvhTreeNodeArray();
 
-		int numIndices = endIndex - startIndex;
+    protected int _calc_splitting_axis(BvhDataArray primitive_boxes, int startIndex, int endIndex) {
+        Vector3f means = new Vector3f();
+        means.set(0f, 0f, 0f);
+        Vector3f variance = new Vector3f();
+        variance.set(0f, 0f, 0f);
 
-		Vector3f center = Stack.alloc(Vector3f.class);
-		Vector3f diff2 = Stack.alloc(Vector3f.class);
+        int numIndices = endIndex - startIndex;
 
-		Vector3f tmp1 = Stack.alloc(Vector3f.class);
-		Vector3f tmp2 = Stack.alloc(Vector3f.class);
+        Vector3f center = new Vector3f();
+        Vector3f diff2 = new Vector3f();
 
-		for (int i=startIndex; i<endIndex; i++) {
-			primitive_boxes.getBoundMax(i, tmp1);
-			primitive_boxes.getBoundMin(i, tmp2);
-			center.add(tmp1, tmp2);
-			center.scale(0.5f);
-			means.add(center);
-		}
-		means.scale(1f / (float)numIndices);
+        Vector3f tmp1 = new Vector3f();
+        Vector3f tmp2 = new Vector3f();
 
-		for (int i=startIndex; i<endIndex; i++) {
-			primitive_boxes.getBoundMax(i, tmp1);
-			primitive_boxes.getBoundMin(i, tmp2);
-			center.add(tmp1, tmp2);
-			center.scale(0.5f);
-			diff2.sub(center, means);
-			VectorUtil.mul(diff2, diff2, diff2);
-			variance.add(diff2);
-		}
-		variance.scale(1f / (float)(numIndices - 1));
+        for (int i = startIndex; i < endIndex; i++) {
+            primitive_boxes.getBoundMax(i, tmp1);
+            primitive_boxes.getBoundMin(i, tmp2);
+            center.add(tmp1, tmp2);
+            center.scale(0.5f);
+            means.add(center);
+        }
+        means.scale(1f / (float) numIndices);
 
-		return VectorUtil.maxAxis(variance);
-	}
+        for (int i = startIndex; i < endIndex; i++) {
+            primitive_boxes.getBoundMax(i, tmp1);
+            primitive_boxes.getBoundMin(i, tmp2);
+            center.add(tmp1, tmp2);
+            center.scale(0.5f);
+            diff2.sub(center, means);
+            VectorUtil.mul(diff2, diff2, diff2);
+            variance.add(diff2);
+        }
+        variance.scale(1f / (float) (numIndices - 1));
 
-	protected int _sort_and_calc_splitting_index(BvhDataArray primitive_boxes, int startIndex, int endIndex, int splitAxis) {
-		int splitIndex = startIndex;
-		int numIndices = endIndex - startIndex;
+        return VectorUtil.maxAxis(variance);
+    }
 
-		// average of centers
-		float splitValue = 0.0f;
+    protected int _sort_and_calc_splitting_index(BvhDataArray primitive_boxes, int startIndex, int endIndex, int splitAxis) {
+        int splitIndex = startIndex;
+        int numIndices = endIndex - startIndex;
 
-		Vector3f means = Stack.alloc(Vector3f.class);
-		means.set(0f, 0f, 0f);
+        // average of centers
+        float splitValue = 0.0f;
 
-		Vector3f center = Stack.alloc(Vector3f.class);
+        Vector3f means = new Vector3f();
+        means.set(0f, 0f, 0f);
 
-		Vector3f tmp1 = Stack.alloc(Vector3f.class);
-		Vector3f tmp2 = Stack.alloc(Vector3f.class);
+        Vector3f center = new Vector3f();
 
-		for (int i = startIndex; i < endIndex; i++) {
-			primitive_boxes.getBoundMax(i, tmp1);
-			primitive_boxes.getBoundMin(i, tmp2);
-			center.add(tmp1, tmp2);
-			center.scale(0.5f);
-			means.add(center);
-		}
-		means.scale(1f / (float) numIndices);
+        Vector3f tmp1 = new Vector3f();
+        Vector3f tmp2 = new Vector3f();
 
-		splitValue = VectorUtil.getCoord(means, splitAxis);
+        for (int i = startIndex; i < endIndex; i++) {
+            primitive_boxes.getBoundMax(i, tmp1);
+            primitive_boxes.getBoundMin(i, tmp2);
+            center.add(tmp1, tmp2);
+            center.scale(0.5f);
+            means.add(center);
+        }
+        means.scale(1f / (float) numIndices);
 
-		// sort leafNodes so all values larger then splitValue comes first, and smaller values start from 'splitIndex'.
-		for (int i = startIndex; i < endIndex; i++) {
-			primitive_boxes.getBoundMax(i, tmp1);
-			primitive_boxes.getBoundMin(i, tmp2);
-			center.add(tmp1, tmp2);
-			center.scale(0.5f);
+        splitValue = VectorUtil.getCoord(means, splitAxis);
 
-			if (VectorUtil.getCoord(center, splitAxis) > splitValue) {
-				// swap
-				primitive_boxes.swap(i, splitIndex);
-				//swapLeafNodes(i,splitIndex);
-				splitIndex++;
-			}
-		}
+        // sort leafNodes so all values larger then splitValue comes first, and smaller values start from 'splitIndex'.
+        for (int i = startIndex; i < endIndex; i++) {
+            primitive_boxes.getBoundMax(i, tmp1);
+            primitive_boxes.getBoundMin(i, tmp2);
+            center.add(tmp1, tmp2);
+            center.scale(0.5f);
 
-		// if the splitIndex causes unbalanced trees, fix this by using the center in between startIndex and endIndex
-		// otherwise the tree-building might fail due to stack-overflows in certain cases.
-		// unbalanced1 is unsafe: it can cause stack overflows
-		//bool unbalanced1 = ((splitIndex==startIndex) || (splitIndex == (endIndex-1)));
+            if (VectorUtil.getCoord(center, splitAxis) > splitValue) {
+                // swap
+                primitive_boxes.swap(i, splitIndex);
+                //swapLeafNodes(i,splitIndex);
+                splitIndex++;
+            }
+        }
 
-		// unbalanced2 should work too: always use center (perfect balanced trees)
-		//bool unbalanced2 = true;
+        // if the splitIndex causes unbalanced trees, fix this by using the center in between startIndex and endIndex
+        // otherwise the tree-building might fail due to stack-overflows in certain cases.
+        // unbalanced1 is unsafe: it can cause stack overflows
+        //bool unbalanced1 = ((splitIndex==startIndex) || (splitIndex == (endIndex-1)));
 
-		// this should be safe too:
-		int rangeBalancedIndices = numIndices / 3;
-		boolean unbalanced = ((splitIndex <= (startIndex + rangeBalancedIndices)) || (splitIndex >= (endIndex - 1 - rangeBalancedIndices)));
+        // unbalanced2 should work too: always use center (perfect balanced trees)
+        //bool unbalanced2 = true;
 
-		if (unbalanced) {
-			splitIndex = startIndex + (numIndices >> 1);
-		}
+        // this should be safe too:
+        int rangeBalancedIndices = numIndices / 3;
+        boolean unbalanced = ((splitIndex <= (startIndex + rangeBalancedIndices)) || (splitIndex >= (endIndex - 1 - rangeBalancedIndices)));
 
-		boolean unbal = (splitIndex == startIndex) || (splitIndex == (endIndex));
-		assert (!unbal);
+        if (unbalanced) {
+            splitIndex = startIndex + (numIndices >> 1);
+        }
 
-		return splitIndex;
-	}
+        boolean unbal = (splitIndex == startIndex) || (splitIndex == (endIndex));
+        assert (!unbal);
 
-	protected void _build_sub_tree(BvhDataArray primitive_boxes, int startIndex, int endIndex) {
-		int curIndex = num_nodes;
-		num_nodes++;
+        return splitIndex;
+    }
 
-		assert ((endIndex - startIndex) > 0);
+    protected void _build_sub_tree(BvhDataArray primitive_boxes, int startIndex, int endIndex) {
+        int curIndex = num_nodes;
+        num_nodes++;
 
-		if ((endIndex - startIndex) == 1) {
-			// We have a leaf node
-			//setNodeBound(curIndex,primitive_boxes[startIndex].m_bound);
-			//m_node_array[curIndex].setDataIndex(primitive_boxes[startIndex].m_data);
-			node_array.set(curIndex, primitive_boxes, startIndex);
+        assert ((endIndex - startIndex) > 0);
 
-			return;
-		}
-		// calculate Best Splitting Axis and where to split it. Sort the incoming 'leafNodes' array within range 'startIndex/endIndex'.
+        if ((endIndex - startIndex) == 1) {
+            // We have a leaf node
+            //setNodeBound(curIndex,primitive_boxes[startIndex].m_bound);
+            //m_node_array[curIndex].setDataIndex(primitive_boxes[startIndex].m_data);
+            node_array.set(curIndex, primitive_boxes, startIndex);
 
-		// split axis
-		int splitIndex = _calc_splitting_axis(primitive_boxes, startIndex, endIndex);
+            return;
+        }
+        // calculate Best Splitting Axis and where to split it. Sort the incoming 'leafNodes' array within range 'startIndex/endIndex'.
 
-		splitIndex = _sort_and_calc_splitting_index(primitive_boxes, startIndex, endIndex, splitIndex);
+        // split axis
+        int splitIndex = _calc_splitting_axis(primitive_boxes, startIndex, endIndex);
 
-		//calc this node bounding box
+        splitIndex = _sort_and_calc_splitting_index(primitive_boxes, startIndex, endIndex, splitIndex);
 
-		AABB node_bound = Stack.alloc(AABB.class);
-		AABB tmpAABB = Stack.alloc(AABB.class);
+        //calc this node bounding box
 
-		node_bound.invalidate();
+        AABB node_bound = new AABB();
+        AABB tmpAABB = new AABB();
 
-		for (int i=startIndex; i<endIndex; i++) {
-			primitive_boxes.getBound(i, tmpAABB);
-			node_bound.merge(tmpAABB);
-		}
+        node_bound.invalidate();
 
-		setNodeBound(curIndex, node_bound);
+        for (int i = startIndex; i < endIndex; i++) {
+            primitive_boxes.getBound(i, tmpAABB);
+            node_bound.merge(tmpAABB);
+        }
 
-		// build left branch
-		_build_sub_tree(primitive_boxes, startIndex, splitIndex);
+        setNodeBound(curIndex, node_bound);
 
-		// build right branch
-		_build_sub_tree(primitive_boxes, splitIndex, endIndex);
+        // build left branch
+        _build_sub_tree(primitive_boxes, startIndex, splitIndex);
 
-		node_array.setEscapeIndex(curIndex, num_nodes - curIndex);
-	}
-	
-	public void build_tree(BvhDataArray primitive_boxes) {
-		// initialize node count to 0
-		num_nodes = 0;
-		// allocate nodes
-		node_array.resize(primitive_boxes.size()*2);
+        // build right branch
+        _build_sub_tree(primitive_boxes, splitIndex, endIndex);
 
-		_build_sub_tree(primitive_boxes, 0, primitive_boxes.size());
-	}
+        node_array.setEscapeIndex(curIndex, num_nodes - curIndex);
+    }
 
-	public void clearNodes() {
-		node_array.clear();
-		num_nodes = 0;
-	}
+    public void build_tree(BvhDataArray primitive_boxes) {
+        // initialize node count to 0
+        num_nodes = 0;
+        // allocate nodes
+        node_array.resize(primitive_boxes.size() * 2);
 
-	public int getNodeCount() {
-		return num_nodes;
-	}
+        _build_sub_tree(primitive_boxes, 0, primitive_boxes.size());
+    }
 
-	/**
-	 * Tells if the node is a leaf.
-	 */
-	public boolean isLeafNode(int nodeindex) {
-		return node_array.isLeafNode(nodeindex);
-	}
+    public void clearNodes() {
+        node_array.clear();
+        num_nodes = 0;
+    }
 
-	public int getNodeData(int nodeindex) {
-		return node_array.getDataIndex(nodeindex);
-	}
+    public int getNodeCount() {
+        return num_nodes;
+    }
 
-	public void getNodeBound(int nodeindex, AABB bound) {
-		node_array.getBound(nodeindex, bound);
-	}
+    /**
+     * Tells if the node is a leaf.
+     */
+    public boolean isLeafNode(int nodeindex) {
+        return node_array.isLeafNode(nodeindex);
+    }
 
-	public void setNodeBound(int nodeindex, AABB bound) {
-		node_array.setBound(nodeindex, bound);
-	}
+    public int getNodeData(int nodeindex) {
+        return node_array.getDataIndex(nodeindex);
+    }
 
-	public int getLeftNode(int nodeindex) {
-		return nodeindex + 1;
-	}
+    public void getNodeBound(int nodeindex, AABB bound) {
+        node_array.getBound(nodeindex, bound);
+    }
 
-	public int getRightNode(int nodeindex) {
-		if (node_array.isLeafNode(nodeindex + 1)) {
-			return nodeindex + 2;
-		}
-		return nodeindex + 1 + node_array.getEscapeIndex(nodeindex + 1);
-	}
+    public void setNodeBound(int nodeindex, AABB bound) {
+        node_array.setBound(nodeindex, bound);
+    }
 
-	public int getEscapeNodeIndex(int nodeindex) {
-		return node_array.getEscapeIndex(nodeindex);
-	}
+    public int getLeftNode(int nodeindex) {
+        return nodeindex + 1;
+    }
 
-	public BvhTreeNodeArray get_node_pointer() {
-		return node_array;
-	}
-	
+    public int getRightNode(int nodeindex) {
+        if (node_array.isLeafNode(nodeindex + 1)) {
+            return nodeindex + 2;
+        }
+        return nodeindex + 1 + node_array.getEscapeIndex(nodeindex + 1);
+    }
+
+    public int getEscapeNodeIndex(int nodeindex) {
+        return node_array.getEscapeIndex(nodeindex);
+    }
+
+    public BvhTreeNodeArray get_node_pointer() {
+        return node_array;
+    }
+
 }

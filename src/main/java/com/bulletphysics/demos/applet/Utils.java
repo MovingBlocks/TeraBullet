@@ -54,257 +54,261 @@
 
 package com.bulletphysics.demos.applet;
 
-import javax.vecmath.*;
+import javax.vecmath.Matrix4f;
+import javax.vecmath.SingularMatrixException;
+import javax.vecmath.Tuple3f;
+import javax.vecmath.Tuple4f;
+import javax.vecmath.Vector3f;
+import javax.vecmath.Vector4f;
 import java.awt.*;
 
 /**
- *
  * @author jezek2
  */
 public class Utils {
 
-	private Utils() {}
+    private Utils() {
+    }
 
-	public static void setFrustum(Matrix4f mat, float left, float right, float bottom, float top, float near, float far) {
-		mat.setZero();
-		mat.m00 = 2f*near / (right - left);
-		mat.m11 = 2f*near / (top - bottom);
-		mat.m32 = -1f;
-		mat.m02 = (right+left) / (right - left);
-		mat.m12 = (top+bottom) / (top - bottom);
-		mat.m22 = - (far + near) / (far - near);
-		mat.m23 = - (2f * far * near) / (far - near);
-	}
-	
-	// from LWJGL:
-	public static void setPerspective(Matrix4f mat, float fovy, float aspect, float zNear, float zFar) {
-		float sine, cotangent, deltaZ;
-		float radians = fovy / 2 * (float)Math.PI / 180;
+    public static void setFrustum(Matrix4f mat, float left, float right, float bottom, float top, float near, float far) {
+        mat.setZero();
+        mat.m00 = 2f * near / (right - left);
+        mat.m11 = 2f * near / (top - bottom);
+        mat.m32 = -1f;
+        mat.m02 = (right + left) / (right - left);
+        mat.m12 = (top + bottom) / (top - bottom);
+        mat.m22 = -(far + near) / (far - near);
+        mat.m23 = -(2f * far * near) / (far - near);
+    }
 
-		deltaZ = zFar - zNear;
-		sine = (float) Math.sin(radians);
+    // from LWJGL:
+    public static void setPerspective(Matrix4f mat, float fovy, float aspect, float zNear, float zFar) {
+        float sine, cotangent, deltaZ;
+        float radians = fovy / 2 * (float) Math.PI / 180;
 
-		if ((deltaZ == 0) || (sine == 0) || (aspect == 0)) {
-			return;
-		}
+        deltaZ = zFar - zNear;
+        sine = (float) Math.sin(radians);
 
-		cotangent = (float) Math.cos(radians) / sine;
+        if ((deltaZ == 0) || (sine == 0) || (aspect == 0)) {
+            return;
+        }
 
-		mat.setIdentity();
-		mat.m00 = cotangent / aspect;
-		mat.m11 = cotangent;
-		mat.m22 = - (zFar + zNear) / deltaZ;
-		mat.m32 = -1;
-		mat.m23 = -2 * zNear * zFar / deltaZ;
-		mat.m33 = 0;
-	}
-	
-	public static void mulPerspective(Matrix4f mat, float fovy, float aspect, float zNear, float zFar) {
-		Matrix4f tmpMat = new Matrix4f();
-		setPerspective(tmpMat, fovy, aspect, zNear, zFar);
-		mat.mul(tmpMat);
-	}
-	
-	public static void setOrtho(Matrix4f mat, float left, float right, float bottom, float top, float near, float far) {
-		mat.setIdentity();
-		mat.m00 = 2f / (right - left);
-		mat.m11 = 2f / (top - bottom);
-		mat.m22 = -2f / (far - near);
-		mat.m03 = -(right + left) / (right - left);
-		mat.m13 = -(top + bottom) / (top - bottom);
-		mat.m23 = -(far + near) / (far - near);
-	}
-	
-	public static void mulOrtho(Matrix4f mat, float left, float right, float bottom, float top, float near, float far) {
-		Matrix4f tmpMat = new Matrix4f();
-		setOrtho(tmpMat, left, right, bottom, top, near, far);
-		mat.mul(tmpMat);
-	}
-	
-	public static void translate(Matrix4f mat, float x, float y, float z) {
-		Matrix4f tmpMat = new Matrix4f();
-		tmpMat.setIdentity();
-		tmpMat.m03 = x;
-		tmpMat.m13 = y;
-		tmpMat.m23 = z;
-		mat.mul(tmpMat);
-	}
-	
-	public static void scale(Matrix4f mat, float x, float y, float z) {
-		Matrix4f tmpMat = new Matrix4f();
-		tmpMat.setIdentity();
-		tmpMat.m00 = x;
-		tmpMat.m11 = y;
-		tmpMat.m22 = z;
-		mat.mul(tmpMat);
-	}
+        cotangent = (float) Math.cos(radians) / sine;
 
-	// from LWJGL:
-	public static void setLookAt(
-		Matrix4f mat,
-		float eyex,
-		float eyey,
-		float eyez,
-		float centerx,
-		float centery,
-		float centerz,
-		float upx,
-		float upy,
-		float upz) {
+        mat.setIdentity();
+        mat.m00 = cotangent / aspect;
+        mat.m11 = cotangent;
+        mat.m22 = -(zFar + zNear) / deltaZ;
+        mat.m32 = -1;
+        mat.m23 = -2 * zNear * zFar / deltaZ;
+        mat.m33 = 0;
+    }
 
-		Vector3f forward = new Vector3f();
-		Vector3f side = new Vector3f();
-		Vector3f up = new Vector3f();
-		
-		forward.x = centerx - eyex;
-		forward.y = centery - eyey;
-		forward.z = centerz - eyez;
+    public static void mulPerspective(Matrix4f mat, float fovy, float aspect, float zNear, float zFar) {
+        Matrix4f tmpMat = new Matrix4f();
+        setPerspective(tmpMat, fovy, aspect, zNear, zFar);
+        mat.mul(tmpMat);
+    }
 
-		up.x = upx;
-		up.y = upy;
-		up.z = upz;
+    public static void setOrtho(Matrix4f mat, float left, float right, float bottom, float top, float near, float far) {
+        mat.setIdentity();
+        mat.m00 = 2f / (right - left);
+        mat.m11 = 2f / (top - bottom);
+        mat.m22 = -2f / (far - near);
+        mat.m03 = -(right + left) / (right - left);
+        mat.m13 = -(top + bottom) / (top - bottom);
+        mat.m23 = -(far + near) / (far - near);
+    }
 
-		forward.normalize();
+    public static void mulOrtho(Matrix4f mat, float left, float right, float bottom, float top, float near, float far) {
+        Matrix4f tmpMat = new Matrix4f();
+        setOrtho(tmpMat, left, right, bottom, top, near, far);
+        mat.mul(tmpMat);
+    }
+
+    public static void translate(Matrix4f mat, float x, float y, float z) {
+        Matrix4f tmpMat = new Matrix4f();
+        tmpMat.setIdentity();
+        tmpMat.m03 = x;
+        tmpMat.m13 = y;
+        tmpMat.m23 = z;
+        mat.mul(tmpMat);
+    }
+
+    public static void scale(Matrix4f mat, float x, float y, float z) {
+        Matrix4f tmpMat = new Matrix4f();
+        tmpMat.setIdentity();
+        tmpMat.m00 = x;
+        tmpMat.m11 = y;
+        tmpMat.m22 = z;
+        mat.mul(tmpMat);
+    }
+
+    // from LWJGL:
+    public static void setLookAt(
+            Matrix4f mat,
+            float eyex,
+            float eyey,
+            float eyez,
+            float centerx,
+            float centery,
+            float centerz,
+            float upx,
+            float upy,
+            float upz) {
+
+        Vector3f forward = new Vector3f();
+        Vector3f side = new Vector3f();
+        Vector3f up = new Vector3f();
+
+        forward.x = centerx - eyex;
+        forward.y = centery - eyey;
+        forward.z = centerz - eyez;
+
+        up.x = upx;
+        up.y = upy;
+        up.z = upz;
+
+        forward.normalize();
 
 		/* Side = forward x up */
-		side.cross(forward, up);
-		side.normalize();
+        side.cross(forward, up);
+        side.normalize();
 
 		/* Recompute up as: up = side x forward */
-		up.cross(side, forward);
+        up.cross(side, forward);
 
-		mat.setIdentity();
-		mat.m00 = side.x;
-		mat.m01 = side.y;
-		mat.m02 = side.z;
+        mat.setIdentity();
+        mat.m00 = side.x;
+        mat.m01 = side.y;
+        mat.m02 = side.z;
 
-		mat.m10 = up.x;
-		mat.m11 = up.y;
-		mat.m12 = up.z;
+        mat.m10 = up.x;
+        mat.m11 = up.y;
+        mat.m12 = up.z;
 
-		mat.m20 = -forward.x;
-		mat.m21 = -forward.y;
-		mat.m22 = -forward.z;
+        mat.m20 = -forward.x;
+        mat.m21 = -forward.y;
+        mat.m22 = -forward.z;
 
-		Utils.translate(mat, -eyex, -eyey, -eyez);
-	}
-	
-	// from LWJGL:
-	public static void mulPickMatrix(
-		Matrix4f mat,
-		float x,
-		float y,
-		float deltaX,
-		float deltaY,
-		Rectangle viewport) {
-		if (deltaX <= 0 || deltaY <= 0) {
-			return;
-		}
+        Utils.translate(mat, -eyex, -eyey, -eyez);
+    }
+
+    // from LWJGL:
+    public static void mulPickMatrix(
+            Matrix4f mat,
+            float x,
+            float y,
+            float deltaX,
+            float deltaY,
+            Rectangle viewport) {
+        if (deltaX <= 0 || deltaY <= 0) {
+            return;
+        }
 
 		/* Translate and scale the picked region to the entire window */
-		translate(mat,
-			(viewport.width - 2 * (x - viewport.x)) / deltaX,
-			(viewport.height - 2 * (y - viewport.y)) / deltaY,
-			0);
-		scale(mat, viewport.width / deltaX, viewport.height / deltaY, 1.0f);
-	}
-	
-	// from LWJGL:
-	private static void __gluMultMatrixVecf(Matrix4f mat, Tuple4f in, Tuple4f out) {
-		out.x = in.x*mat.m00 + in.y*mat.m01 + in.z*mat.m02 + in.w*mat.m03;
-		out.y = in.x*mat.m10 + in.y*mat.m11 + in.z*mat.m12 + in.w*mat.m13;
-		out.z = in.x*mat.m20 + in.y*mat.m21 + in.z*mat.m22 + in.w*mat.m23;
-		out.w = in.x*mat.m30 + in.y*mat.m31 + in.z*mat.m32 + in.w*mat.m33;
-	}
-	
-	// from LWJGL:
-	public static boolean project(
-		float objx,
-		float objy,
-		float objz,
-		Matrix4f modelMatrix,
-		Matrix4f projMatrix,
-		Rectangle viewport,
-		Tuple3f win_pos) {
+        translate(mat,
+                (viewport.width - 2 * (x - viewport.x)) / deltaX,
+                (viewport.height - 2 * (y - viewport.y)) / deltaY,
+                0);
+        scale(mat, viewport.width / deltaX, viewport.height / deltaY, 1.0f);
+    }
 
-		Vector4f in = new Vector4f();
-		Vector4f out = new Vector4f();
+    // from LWJGL:
+    private static void __gluMultMatrixVecf(Matrix4f mat, Tuple4f in, Tuple4f out) {
+        out.x = in.x * mat.m00 + in.y * mat.m01 + in.z * mat.m02 + in.w * mat.m03;
+        out.y = in.x * mat.m10 + in.y * mat.m11 + in.z * mat.m12 + in.w * mat.m13;
+        out.z = in.x * mat.m20 + in.y * mat.m21 + in.z * mat.m22 + in.w * mat.m23;
+        out.w = in.x * mat.m30 + in.y * mat.m31 + in.z * mat.m32 + in.w * mat.m33;
+    }
 
-		in.x = objx;
-		in.y = objy;
-		in.z = objz;
-		in.w = 1.0f;
+    // from LWJGL:
+    public static boolean project(
+            float objx,
+            float objy,
+            float objz,
+            Matrix4f modelMatrix,
+            Matrix4f projMatrix,
+            Rectangle viewport,
+            Tuple3f win_pos) {
 
-		__gluMultMatrixVecf(modelMatrix, in, out);
-		__gluMultMatrixVecf(projMatrix, out, in);
+        Vector4f in = new Vector4f();
+        Vector4f out = new Vector4f();
 
-		if (in.w == 0.0)
-			return false;
+        in.x = objx;
+        in.y = objy;
+        in.z = objz;
+        in.w = 1.0f;
 
-		in.w = (1.0f / in.w) * 0.5f;
+        __gluMultMatrixVecf(modelMatrix, in, out);
+        __gluMultMatrixVecf(projMatrix, out, in);
 
-		// Map x, y and z to range 0-1
-		in.x = in.x * in.w + 0.5f;
-		in.y = in.y * in.w + 0.5f;
-		in.z = in.z * in.w + 0.5f;
+        if (in.w == 0.0)
+            return false;
 
-		// Map x,y to viewport
-		win_pos.x = in.x * viewport.width + viewport.x;
-		win_pos.y = in.y * viewport.height + viewport.y;
-		win_pos.z = in.z;
+        in.w = (1.0f / in.w) * 0.5f;
 
-		return true;
-	}
-	
-	// from LWJGL:
-	public static boolean unproject(
-		float winx,
-		float winy,
-		float winz,
-		Matrix4f modelMatrix,
-		Matrix4f projMatrix,
-		Rectangle viewport,
-		Tuple3f obj_pos) {
-		
-		Vector4f in = new Vector4f();
-		Vector4f out = new Vector4f();
-		Matrix4f finalMatrix = new Matrix4f();
-		
-		finalMatrix.mul(projMatrix, modelMatrix);
+        // Map x, y and z to range 0-1
+        in.x = in.x * in.w + 0.5f;
+        in.y = in.y * in.w + 0.5f;
+        in.z = in.z * in.w + 0.5f;
 
-		try {
-			finalMatrix.invert();
-		}
-		catch (SingularMatrixException e) {
-			return false;
-		}
+        // Map x,y to viewport
+        win_pos.x = in.x * viewport.width + viewport.x;
+        win_pos.y = in.y * viewport.height + viewport.y;
+        win_pos.z = in.z;
 
-		in.x = winx;
-		in.y = winy;
-		in.z = winz;
-		in.w = 1.0f;
+        return true;
+    }
 
-		// Map x and y from window coordinates
-		in.x = (in.x - viewport.x) / viewport.width;
-		in.y = (in.y - viewport.y) / viewport.height;
+    // from LWJGL:
+    public static boolean unproject(
+            float winx,
+            float winy,
+            float winz,
+            Matrix4f modelMatrix,
+            Matrix4f projMatrix,
+            Rectangle viewport,
+            Tuple3f obj_pos) {
 
-		// Map to range -1 to 1
-		in.x = in.x * 2 - 1;
-		in.y = in.y * 2 - 1;
-		in.z = in.z * 2 - 1;
+        Vector4f in = new Vector4f();
+        Vector4f out = new Vector4f();
+        Matrix4f finalMatrix = new Matrix4f();
 
-		__gluMultMatrixVecf(finalMatrix, in, out);
+        finalMatrix.mul(projMatrix, modelMatrix);
 
-		if (out.w == 0.0)
-			return false;
+        try {
+            finalMatrix.invert();
+        } catch (SingularMatrixException e) {
+            return false;
+        }
 
-		out.w = 1.0f / out.w;
+        in.x = winx;
+        in.y = winy;
+        in.z = winz;
+        in.w = 1.0f;
 
-		obj_pos.x = out.x * out.w;
-		obj_pos.y = out.y * out.w;
-		obj_pos.z = out.z * out.w;
+        // Map x and y from window coordinates
+        in.x = (in.x - viewport.x) / viewport.width;
+        in.y = (in.y - viewport.y) / viewport.height;
 
-		return true;
-	}
-	
+        // Map to range -1 to 1
+        in.x = in.x * 2 - 1;
+        in.y = in.y * 2 - 1;
+        in.z = in.z * 2 - 1;
+
+        __gluMultMatrixVecf(finalMatrix, in, out);
+
+        if (out.w == 0.0)
+            return false;
+
+        out.w = 1.0f / out.w;
+
+        obj_pos.x = out.x * out.w;
+        obj_pos.y = out.y * out.w;
+        obj_pos.z = out.z * out.w;
+
+        return true;
+    }
+
 }

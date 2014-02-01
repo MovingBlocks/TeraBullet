@@ -28,7 +28,11 @@ import com.bulletphysics.collision.broadphase.DbvtBroadphase;
 import com.bulletphysics.collision.dispatch.CollisionDispatcher;
 import com.bulletphysics.collision.dispatch.CollisionFlags;
 import com.bulletphysics.collision.dispatch.DefaultCollisionConfiguration;
-import com.bulletphysics.collision.shapes.*;
+import com.bulletphysics.collision.shapes.BoxShape;
+import com.bulletphysics.collision.shapes.CollisionShape;
+import com.bulletphysics.collision.shapes.CompoundShape;
+import com.bulletphysics.collision.shapes.StaticPlaneShape;
+import com.bulletphysics.collision.shapes.TriangleIndexVertexArray;
 import com.bulletphysics.demos.opengl.DemoApplication;
 import com.bulletphysics.demos.opengl.GLDebugDrawer;
 import com.bulletphysics.demos.opengl.IGL;
@@ -49,190 +53,188 @@ import static com.bulletphysics.demos.opengl.IGL.GL_COLOR_BUFFER_BIT;
 import static com.bulletphysics.demos.opengl.IGL.GL_DEPTH_BUFFER_BIT;
 
 /**
- * 
- * 
  * @author jezek2
  */
 public class MovingConcaveDemo extends DemoApplication {
-	
-	private BroadphaseInterface overlappingPairCache;
-	private CollisionDispatcher dispatcher;
-	private ConstraintSolver solver;
-	private DefaultCollisionConfiguration collisionConfiguration;
-	
-	private CollisionShape trimeshShape;
 
-	public MovingConcaveDemo(IGL gl) {
-		super(gl);
-	}
-	
-	@Override
-	public void clientMoveAndDisplay() {
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    private BroadphaseInterface overlappingPairCache;
+    private CollisionDispatcher dispatcher;
+    private ConstraintSolver solver;
+    private DefaultCollisionConfiguration collisionConfiguration;
 
-		// simple dynamics world doesn't handle fixed-time-stepping
-		float ms = getDeltaTimeMicroseconds();
+    private CollisionShape trimeshShape;
 
-		// step the simulation
-		if (dynamicsWorld != null) {
-			dynamicsWorld.stepSimulation(ms / 1000000f);
-			// optional but useful: debug drawing
-			dynamicsWorld.debugDrawWorld();
-		}
+    public MovingConcaveDemo(IGL gl) {
+        super(gl);
+    }
 
-		renderme();
+    @Override
+    public void clientMoveAndDisplay() {
+        gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		//glFlush();
-		//glutSwapBuffers();
-	}
+        // simple dynamics world doesn't handle fixed-time-stepping
+        float ms = getDeltaTimeMicroseconds();
 
-	@Override
-	public void displayCallback() {
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // step the simulation
+        if (dynamicsWorld != null) {
+            dynamicsWorld.stepSimulation(ms / 1000000f);
+            // optional but useful: debug drawing
+            dynamicsWorld.debugDrawWorld();
+        }
 
-		renderme();
+        renderme();
 
-		// optional but useful: debug drawing to detect problems
-		if (dynamicsWorld != null) {
-			dynamicsWorld.debugDrawWorld();
-		}
+        //glFlush();
+        //glutSwapBuffers();
+    }
 
-		//glFlush();
-		//glutSwapBuffers();
-	}
+    @Override
+    public void displayCallback() {
+        gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	public void initGImpactCollision() {
-		// create trimesh
-		TriangleIndexVertexArray indexVertexArrays = new TriangleIndexVertexArray(
-				Bunny.NUM_TRIANGLES, Bunny.getIndexBuffer(), 4 * 3,
-				Bunny.NUM_VERTICES, Bunny.getVertexBuffer(), 4 * 3);
+        renderme();
 
-		GImpactMeshShape trimesh = new GImpactMeshShape(indexVertexArrays);
-		trimesh.setLocalScaling(new Vector3f(4f, 4f, 4f));
-		trimesh.updateBound();
-		trimeshShape = trimesh;
+        // optional but useful: debug drawing to detect problems
+        if (dynamicsWorld != null) {
+            dynamicsWorld.debugDrawWorld();
+        }
 
-		// register algorithm
-		GImpactCollisionAlgorithm.registerAlgorithm(dispatcher);
-	}
-	
-	public void initPhysics() {
-		setCameraDistance(30f);
+        //glFlush();
+        //glutSwapBuffers();
+    }
 
-		// collision configuration contains default setup for memory, collision setup
-		collisionConfiguration = new DefaultCollisionConfiguration();
+    public void initGImpactCollision() {
+        // create trimesh
+        TriangleIndexVertexArray indexVertexArrays = new TriangleIndexVertexArray(
+                Bunny.NUM_TRIANGLES, Bunny.getIndexBuffer(), 4 * 3,
+                Bunny.NUM_VERTICES, Bunny.getVertexBuffer(), 4 * 3);
 
-		// use the default collision dispatcher. For parallel processing you can use a diffent dispatcher (see Extras/BulletMultiThreaded)
-		dispatcher = new CollisionDispatcher(collisionConfiguration);
+        GImpactMeshShape trimesh = new GImpactMeshShape(indexVertexArrays);
+        trimesh.setLocalScaling(new Vector3f(4f, 4f, 4f));
+        trimesh.updateBound();
+        trimeshShape = trimesh;
 
-		overlappingPairCache = new DbvtBroadphase();
+        // register algorithm
+        GImpactCollisionAlgorithm.registerAlgorithm(dispatcher);
+    }
 
-		// the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
-		SequentialImpulseConstraintSolver sol = new SequentialImpulseConstraintSolver();
-		solver = sol;
-		
-		// TODO: needed for SimpleDynamicsWorld
-		//sol.setSolverMode(sol.getSolverMode() & ~SolverMode.SOLVER_CACHE_FRIENDLY.getMask());
-		
-		dynamicsWorld = new DiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
-		//dynamicsWorld = new SimpleDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
+    public void initPhysics() {
+        setCameraDistance(30f);
 
-		dynamicsWorld.setGravity(new Vector3f(0f, -10f, 0f));
-		
-		initGImpactCollision();
+        // collision configuration contains default setup for memory, collision setup
+        collisionConfiguration = new DefaultCollisionConfiguration();
 
-		float mass = 0f;
-		Transform startTransform = new Transform();
-		startTransform.setIdentity();
+        // use the default collision dispatcher. For parallel processing you can use a diffent dispatcher (see Extras/BulletMultiThreaded)
+        dispatcher = new CollisionDispatcher(collisionConfiguration);
 
-		CollisionShape staticboxShape1 = new BoxShape(new Vector3f(200f, 1f, 200f)); // floor
-		CollisionShape staticboxShape2 = new BoxShape(new Vector3f(1f, 50f, 200f)); // left wall
-		CollisionShape staticboxShape3 = new BoxShape(new Vector3f(1f, 50f, 200f)); // right wall
-		CollisionShape staticboxShape4 = new BoxShape(new Vector3f(200f, 50f, 1f)); // front wall
-		CollisionShape staticboxShape5 = new BoxShape(new Vector3f(200f, 50f, 1f)); // back wall
+        overlappingPairCache = new DbvtBroadphase();
 
-		CompoundShape staticScenario = new CompoundShape(); // static scenario
+        // the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
+        SequentialImpulseConstraintSolver sol = new SequentialImpulseConstraintSolver();
+        solver = sol;
 
-		startTransform.origin.set(0f, 0f, 0f);
-		staticScenario.addChildShape(startTransform, staticboxShape1);
-		startTransform.origin.set(-200f, 25f, 0f);
-		staticScenario.addChildShape(startTransform, staticboxShape2);
-		startTransform.origin.set(200f, 25f, 0f);
-		staticScenario.addChildShape(startTransform, staticboxShape3);
-		startTransform.origin.set(0f, 25f, 200f);
-		staticScenario.addChildShape(startTransform, staticboxShape4);
-		startTransform.origin.set(0f, 25f, -200f);
-		staticScenario.addChildShape(startTransform, staticboxShape5);
+        // TODO: needed for SimpleDynamicsWorld
+        //sol.setSolverMode(sol.getSolverMode() & ~SolverMode.SOLVER_CACHE_FRIENDLY.getMask());
 
-		startTransform.origin.set(0f, 0f, 0f);
+        dynamicsWorld = new DiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
+        //dynamicsWorld = new SimpleDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
 
-		RigidBody staticBody = localCreateRigidBody(mass, startTransform, staticScenario);
+        dynamicsWorld.setGravity(new Vector3f(0f, -10f, 0f));
 
-		staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.STATIC_OBJECT);
+        initGImpactCollision();
 
-		// enable custom material callback
-		//staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.CUSTOM_MATERIAL_CALLBACK);
+        float mass = 0f;
+        Transform startTransform = new Transform();
+        startTransform.setIdentity();
 
-		// static plane
-		Vector3f normal = new Vector3f(0.4f, 1.5f, -0.4f);
-		normal.normalize();
-		CollisionShape staticplaneShape6 = new StaticPlaneShape(normal, 0f); // A plane
+        CollisionShape staticboxShape1 = new BoxShape(new Vector3f(200f, 1f, 200f)); // floor
+        CollisionShape staticboxShape2 = new BoxShape(new Vector3f(1f, 50f, 200f)); // left wall
+        CollisionShape staticboxShape3 = new BoxShape(new Vector3f(1f, 50f, 200f)); // right wall
+        CollisionShape staticboxShape4 = new BoxShape(new Vector3f(200f, 50f, 1f)); // front wall
+        CollisionShape staticboxShape5 = new BoxShape(new Vector3f(200f, 50f, 1f)); // back wall
 
-		startTransform.origin.set(0f, 0f, 0f);
+        CompoundShape staticScenario = new CompoundShape(); // static scenario
 
-		RigidBody staticBody2 = localCreateRigidBody(mass, startTransform, staticplaneShape6);
+        startTransform.origin.set(0f, 0f, 0f);
+        staticScenario.addChildShape(startTransform, staticboxShape1);
+        startTransform.origin.set(-200f, 25f, 0f);
+        staticScenario.addChildShape(startTransform, staticboxShape2);
+        startTransform.origin.set(200f, 25f, 0f);
+        staticScenario.addChildShape(startTransform, staticboxShape3);
+        startTransform.origin.set(0f, 25f, 200f);
+        staticScenario.addChildShape(startTransform, staticboxShape4);
+        startTransform.origin.set(0f, 25f, -200f);
+        staticScenario.addChildShape(startTransform, staticboxShape5);
 
-		staticBody2.setCollisionFlags(staticBody2.getCollisionFlags() | CollisionFlags.STATIC_OBJECT);
+        startTransform.origin.set(0f, 0f, 0f);
 
-		for (int i=0; i<9; i++) {
-			CollisionShape boxShape = new BoxShape(new Vector3f(1f, 1f, 1f));
-			startTransform.origin.set(2f * i - 5f, 2f, -3f);
-			localCreateRigidBody(1, startTransform, boxShape);
-		}
-	}
-	
-	public void shootTrimesh(Vector3f destination) {
-		if (dynamicsWorld != null) {
-			float mass = 4f;
-			Transform startTransform = new Transform();
-			startTransform.setIdentity();
-			Vector3f camPos = getCameraPosition();
-			startTransform.origin.set(camPos);
+        RigidBody staticBody = localCreateRigidBody(mass, startTransform, staticScenario);
 
-			RigidBody body = localCreateRigidBody(mass, startTransform, trimeshShape);
+        staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.STATIC_OBJECT);
 
-			Vector3f linVel = new Vector3f(destination.x - camPos.x, destination.y - camPos.y, destination.z - camPos.z);
-			linVel.normalize();
-			linVel.scale(ShootBoxInitialSpeed * 0.25f);
+        // enable custom material callback
+        //staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.CUSTOM_MATERIAL_CALLBACK);
 
-			Transform tr = new Transform();
-			tr.origin.set(camPos);
-			tr.setRotation(new Quat4f(0f, 0f, 0f, 1f));
-			body.setWorldTransform(tr);
+        // static plane
+        Vector3f normal = new Vector3f(0.4f, 1.5f, -0.4f);
+        normal.normalize();
+        CollisionShape staticplaneShape6 = new StaticPlaneShape(normal, 0f); // A plane
 
-			body.setLinearVelocity(linVel);
-			body.setAngularVelocity(new Vector3f(0f, 0f, 0f));
-		}
-	}
+        startTransform.origin.set(0f, 0f, 0f);
 
-	@Override
-	public void keyboardCallback(char key, int x, int y, int modifiers) {
-		switch (key) {
-			case '.':
-				shootTrimesh(getCameraTargetPosition());
-				break;
+        RigidBody staticBody2 = localCreateRigidBody(mass, startTransform, staticplaneShape6);
 
-			default:
-				super.keyboardCallback(key, x, y, modifiers);
-		}
-	}
-	
-	public static void main(String[] args) throws LWJGLException {
-		MovingConcaveDemo concaveDemo = new MovingConcaveDemo(LWJGL.getGL());
-		concaveDemo.initPhysics();
-		concaveDemo.getDynamicsWorld().setDebugDrawer(new GLDebugDrawer(LWJGL.getGL()));
+        staticBody2.setCollisionFlags(staticBody2.getCollisionFlags() | CollisionFlags.STATIC_OBJECT);
 
-		LWJGL.main(args, 800, 600, "Moving Concave Mesh Demo", concaveDemo);
-	}
-	
+        for (int i = 0; i < 9; i++) {
+            CollisionShape boxShape = new BoxShape(new Vector3f(1f, 1f, 1f));
+            startTransform.origin.set(2f * i - 5f, 2f, -3f);
+            localCreateRigidBody(1, startTransform, boxShape);
+        }
+    }
+
+    public void shootTrimesh(Vector3f destination) {
+        if (dynamicsWorld != null) {
+            float mass = 4f;
+            Transform startTransform = new Transform();
+            startTransform.setIdentity();
+            Vector3f camPos = getCameraPosition();
+            startTransform.origin.set(camPos);
+
+            RigidBody body = localCreateRigidBody(mass, startTransform, trimeshShape);
+
+            Vector3f linVel = new Vector3f(destination.x - camPos.x, destination.y - camPos.y, destination.z - camPos.z);
+            linVel.normalize();
+            linVel.scale(ShootBoxInitialSpeed * 0.25f);
+
+            Transform tr = new Transform();
+            tr.origin.set(camPos);
+            tr.setRotation(new Quat4f(0f, 0f, 0f, 1f));
+            body.setWorldTransform(tr);
+
+            body.setLinearVelocity(linVel);
+            body.setAngularVelocity(new Vector3f(0f, 0f, 0f));
+        }
+    }
+
+    @Override
+    public void keyboardCallback(char key, int x, int y, int modifiers) {
+        switch (key) {
+            case '.':
+                shootTrimesh(getCameraTargetPosition());
+                break;
+
+            default:
+                super.keyboardCallback(key, x, y, modifiers);
+        }
+    }
+
+    public static void main(String[] args) throws LWJGLException {
+        MovingConcaveDemo concaveDemo = new MovingConcaveDemo(LWJGL.getGL());
+        concaveDemo.initPhysics();
+        concaveDemo.getDynamicsWorld().setDebugDrawer(new GLDebugDrawer(LWJGL.getGL()));
+
+        LWJGL.main(args, 800, 600, "Moving Concave Mesh Demo", concaveDemo);
+    }
+
 }

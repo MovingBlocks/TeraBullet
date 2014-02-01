@@ -27,11 +27,11 @@ import javax.vecmath.Vector3f;
 
 /**
  * VehicleRaycaster is provides interface for between vehicle simulation and raycasting.
- * 
+ *
  * @author jezek2
  */
 public abstract class VehicleRaycaster {
 
-	public abstract Object castRay(Vector3f from, Vector3f to, VehicleRaycasterResult result);
-	
+    public abstract Object castRay(Vector3f from, Vector3f to, VehicleRaycasterResult result);
+
 }

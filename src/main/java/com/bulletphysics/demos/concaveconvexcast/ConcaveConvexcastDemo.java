@@ -54,225 +54,223 @@ import static com.bulletphysics.demos.opengl.IGL.GL_COLOR_BUFFER_BIT;
 import static com.bulletphysics.demos.opengl.IGL.GL_DEPTH_BUFFER_BIT;
 
 /**
- * 
  * @author jezek2
  */
 public class ConcaveConvexcastDemo extends DemoApplication {
 
-	// keep the collision shapes, for deletion/cleanup
-	private ObjectArrayList<CollisionShape> collisionShapes = new ObjectArrayList<CollisionShape>();
-	private TriangleIndexVertexArray indexVertexArrays;
-	private BroadphaseInterface broadphase;
-	private CollisionDispatcher dispatcher;
-	private ConstraintSolver solver;
-	private DefaultCollisionConfiguration collisionConfiguration;
-	private boolean animatedMesh = false;
-	
-	private static ByteBuffer gVertices;
-	private static ByteBuffer gIndices;
-	private static BvhTriangleMeshShape trimeshShape;
-	private static RigidBody staticBody;
-	private static float waveheight = 5.f;
+    // keep the collision shapes, for deletion/cleanup
+    private ObjectArrayList<CollisionShape> collisionShapes = new ObjectArrayList<CollisionShape>();
+    private TriangleIndexVertexArray indexVertexArrays;
+    private BroadphaseInterface broadphase;
+    private CollisionDispatcher dispatcher;
+    private ConstraintSolver solver;
+    private DefaultCollisionConfiguration collisionConfiguration;
+    private boolean animatedMesh = false;
 
-	private static final float TRIANGLE_SIZE=8.f;
-	private static int NUM_VERTS_X = 30;
-	private static int NUM_VERTS_Y = 30;
-	private static int totalVerts = NUM_VERTS_X*NUM_VERTS_Y;
+    private static ByteBuffer gVertices;
+    private static ByteBuffer gIndices;
+    private static BvhTriangleMeshShape trimeshShape;
+    private static RigidBody staticBody;
+    private static float waveheight = 5.f;
 
-	private ConvexcastBatch convexcastBatch;
+    private static final float TRIANGLE_SIZE = 8.f;
+    private static int NUM_VERTS_X = 30;
+    private static int NUM_VERTS_Y = 30;
+    private static int totalVerts = NUM_VERTS_X * NUM_VERTS_Y;
 
-	public ConcaveConvexcastDemo(IGL gl) {
-		super(gl);
-	}
+    private ConvexcastBatch convexcastBatch;
 
-	public void setVertexPositions(float waveheight, float offset) {
-		int i;
-		int j;
-		Vector3f tmp = new Vector3f();
+    public ConcaveConvexcastDemo(IGL gl) {
+        super(gl);
+    }
 
-		for (i = 0; i < NUM_VERTS_X; i++) {
-			for (j = 0; j < NUM_VERTS_Y; j++) {
-				tmp.set(
-						(i - NUM_VERTS_X * 0.5f) * TRIANGLE_SIZE,
-						//0.f,
-						waveheight * (float) Math.sin((float) i + offset) * (float) Math.cos((float) j + offset),
-						(j - NUM_VERTS_Y * 0.5f) * TRIANGLE_SIZE);
+    public void setVertexPositions(float waveheight, float offset) {
+        int i;
+        int j;
+        Vector3f tmp = new Vector3f();
 
-				int index = i + j * NUM_VERTS_X;
-				gVertices.putFloat((index*3 + 0) * 4, tmp.x);
-				gVertices.putFloat((index*3 + 1) * 4, tmp.y);
-				gVertices.putFloat((index*3 + 2) * 4, tmp.z);
-			}
-		}
-	}
+        for (i = 0; i < NUM_VERTS_X; i++) {
+            for (j = 0; j < NUM_VERTS_Y; j++) {
+                tmp.set(
+                        (i - NUM_VERTS_X * 0.5f) * TRIANGLE_SIZE,
+                        //0.f,
+                        waveheight * (float) Math.sin((float) i + offset) * (float) Math.cos((float) j + offset),
+                        (j - NUM_VERTS_Y * 0.5f) * TRIANGLE_SIZE);
 
-	@Override
-	public void keyboardCallback(char key, int x, int y, int modifiers) {
-		if (key == 'g') {
-			animatedMesh = !animatedMesh;
-			if (animatedMesh) {
-				staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.KINEMATIC_OBJECT);
-				staticBody.setActivationState(CollisionObject.DISABLE_DEACTIVATION);
-			}
-			else {
-				staticBody.setCollisionFlags(staticBody.getCollisionFlags() & ~CollisionFlags.KINEMATIC_OBJECT);
-				staticBody.forceActivationState(CollisionObject.ACTIVE_TAG);
-			}
-		}
+                int index = i + j * NUM_VERTS_X;
+                gVertices.putFloat((index * 3 + 0) * 4, tmp.x);
+                gVertices.putFloat((index * 3 + 1) * 4, tmp.y);
+                gVertices.putFloat((index * 3 + 2) * 4, tmp.z);
+            }
+        }
+    }
 
-		super.keyboardCallback(key, x, y, modifiers);
-	}
+    @Override
+    public void keyboardCallback(char key, int x, int y, int modifiers) {
+        if (key == 'g') {
+            animatedMesh = !animatedMesh;
+            if (animatedMesh) {
+                staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.KINEMATIC_OBJECT);
+                staticBody.setActivationState(CollisionObject.DISABLE_DEACTIVATION);
+            } else {
+                staticBody.setCollisionFlags(staticBody.getCollisionFlags() & ~CollisionFlags.KINEMATIC_OBJECT);
+                staticBody.forceActivationState(CollisionObject.ACTIVE_TAG);
+            }
+        }
 
-	public void initPhysics() {
-		final float TRISIZE = 10f;
+        super.keyboardCallback(key, x, y, modifiers);
+    }
 
-		//#define USE_TRIMESH_SHAPE 1
-		//#ifdef USE_TRIMESH_SHAPE
+    public void initPhysics() {
+        final float TRISIZE = 10f;
 
-		int vertStride = 3 * 4;
-		int indexStride = 3 * 4;
+        //#define USE_TRIMESH_SHAPE 1
+        //#ifdef USE_TRIMESH_SHAPE
 
-		int totalTriangles = 2 * (NUM_VERTS_X - 1) * (NUM_VERTS_Y - 1);
+        int vertStride = 3 * 4;
+        int indexStride = 3 * 4;
 
-		gVertices = ByteBuffer.allocateDirect(totalVerts * 3 * 4).order(ByteOrder.nativeOrder());
-		gIndices = ByteBuffer.allocateDirect(totalTriangles * 3 * 4).order(ByteOrder.nativeOrder());
+        int totalTriangles = 2 * (NUM_VERTS_X - 1) * (NUM_VERTS_Y - 1);
 
-		int i;
+        gVertices = ByteBuffer.allocateDirect(totalVerts * 3 * 4).order(ByteOrder.nativeOrder());
+        gIndices = ByteBuffer.allocateDirect(totalTriangles * 3 * 4).order(ByteOrder.nativeOrder());
 
-		setVertexPositions(waveheight, 0.f);
+        int i;
 
-		//int index=0;
-		gIndices.clear();
-		for (i = 0; i < NUM_VERTS_X - 1; i++) {
-			for (int j = 0; j < NUM_VERTS_Y - 1; j++) {
-				gIndices.putInt(j * NUM_VERTS_X + i);
-				gIndices.putInt(j * NUM_VERTS_X + i + 1);
-				gIndices.putInt((j + 1) * NUM_VERTS_X + i + 1);
+        setVertexPositions(waveheight, 0.f);
 
-				gIndices.putInt(j * NUM_VERTS_X + i);
-				gIndices.putInt((j + 1) * NUM_VERTS_X + i + 1);
-				gIndices.putInt((j + 1) * NUM_VERTS_X + i);
-			}
-		}
-		gIndices.flip();
+        //int index=0;
+        gIndices.clear();
+        for (i = 0; i < NUM_VERTS_X - 1; i++) {
+            for (int j = 0; j < NUM_VERTS_Y - 1; j++) {
+                gIndices.putInt(j * NUM_VERTS_X + i);
+                gIndices.putInt(j * NUM_VERTS_X + i + 1);
+                gIndices.putInt((j + 1) * NUM_VERTS_X + i + 1);
 
-		indexVertexArrays = new TriangleIndexVertexArray(totalTriangles,
-				gIndices,
-				indexStride,
-				totalVerts, gVertices, vertStride);
+                gIndices.putInt(j * NUM_VERTS_X + i);
+                gIndices.putInt((j + 1) * NUM_VERTS_X + i + 1);
+                gIndices.putInt((j + 1) * NUM_VERTS_X + i);
+            }
+        }
+        gIndices.flip();
 
-		boolean useQuantizedAabbCompression = true;
+        indexVertexArrays = new TriangleIndexVertexArray(totalTriangles,
+                gIndices,
+                indexStride,
+                totalVerts, gVertices, vertStride);
 
-		//comment out the next line to read the BVH from disk (first run the demo once to create the BVH)
-		//#define SERIALIZE_TO_DISK 1
-		//#ifdef SERIALIZE_TO_DISK
-		trimeshShape = new BvhTriangleMeshShape(indexVertexArrays, useQuantizedAabbCompression);
-		collisionShapes.add(trimeshShape);
+        boolean useQuantizedAabbCompression = true;
 
-		CollisionShape groundShape = trimeshShape;
+        //comment out the next line to read the BVH from disk (first run the demo once to create the BVH)
+        //#define SERIALIZE_TO_DISK 1
+        //#ifdef SERIALIZE_TO_DISK
+        trimeshShape = new BvhTriangleMeshShape(indexVertexArrays, useQuantizedAabbCompression);
+        collisionShapes.add(trimeshShape);
 
-		collisionConfiguration = new DefaultCollisionConfiguration();
+        CollisionShape groundShape = trimeshShape;
 
-		dispatcher = new CollisionDispatcher(collisionConfiguration);
+        collisionConfiguration = new DefaultCollisionConfiguration();
 
-		Vector3f worldMin = new Vector3f(-1000f, -1000f, -1000f);
-		Vector3f worldMax = new Vector3f(1000f, 1000f, 1000f);
-		//broadphase = new AxisSweep3(worldMin, worldMax);
-		broadphase = new DbvtBroadphase();
-		solver = new SequentialImpulseConstraintSolver();
-		dynamicsWorld = new DiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
+        dispatcher = new CollisionDispatcher(collisionConfiguration);
 
-		// JAVA NOTE: added
-		dynamicsWorld.setDebugDrawer(new GLDebugDrawer(gl));
-		
-		float mass = 0f;
-		Transform startTransform = new Transform();
-		startTransform.setIdentity();
-		startTransform.origin.set(0f, -2f, 0f);
+        Vector3f worldMin = new Vector3f(-1000f, -1000f, -1000f);
+        Vector3f worldMax = new Vector3f(1000f, 1000f, 1000f);
+        //broadphase = new AxisSweep3(worldMin, worldMax);
+        broadphase = new DbvtBroadphase();
+        solver = new SequentialImpulseConstraintSolver();
+        dynamicsWorld = new DiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
 
-		CollisionShape colShape = new BoxShape(new Vector3f(1f, 1f, 1f));
-		collisionShapes.add(colShape);
+        // JAVA NOTE: added
+        dynamicsWorld.setDebugDrawer(new GLDebugDrawer(gl));
 
-		{
-			for (i = 0; i < 10; i++) {
-				//btCollisionShape* colShape = new btCapsuleShape(0.5,2.0);//boxShape = new btSphereShape(1.f);
-				startTransform.origin.set(2f * i, 10f, 1f);
-				localCreateRigidBody(1f, startTransform, colShape);
-			}
-		}
+        float mass = 0f;
+        Transform startTransform = new Transform();
+        startTransform.setIdentity();
+        startTransform.origin.set(0f, -2f, 0f);
 
-		startTransform.setIdentity();
-		staticBody = localCreateRigidBody(mass, startTransform, groundShape);
+        CollisionShape colShape = new BoxShape(new Vector3f(1f, 1f, 1f));
+        collisionShapes.add(colShape);
 
-		staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.STATIC_OBJECT);
+        {
+            for (i = 0; i < 10; i++) {
+                //btCollisionShape* colShape = new btCapsuleShape(0.5,2.0);//boxShape = new btSphereShape(1.f);
+                startTransform.origin.set(2f * i, 10f, 1f);
+                localCreateRigidBody(1f, startTransform, colShape);
+            }
+        }
 
-		// enable custom material callback
-		staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.CUSTOM_MATERIAL_CALLBACK);
+        startTransform.setIdentity();
+        staticBody = localCreateRigidBody(mass, startTransform, groundShape);
 
-		convexcastBatch = new ConvexcastBatch(40f, 0f, -10f, 10f);
-	}
+        staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.STATIC_OBJECT);
 
-	private static float offset = 0f;
-	
-	@Override
-	public void clientMoveAndDisplay() {
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // enable custom material callback
+        staticBody.setCollisionFlags(staticBody.getCollisionFlags() | CollisionFlags.CUSTOM_MATERIAL_CALLBACK);
 
-		float dt = getDeltaTimeMicroseconds() * 0.000001f;
+        convexcastBatch = new ConvexcastBatch(40f, 0f, -10f, 10f);
+    }
 
-		if (animatedMesh) {
-			long t0 = System.nanoTime();
-			
-			offset += 0.01f;
+    private static float offset = 0f;
 
-			setVertexPositions(waveheight, offset);
+    @Override
+    public void clientMoveAndDisplay() {
+        gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			// JAVA NOTE: 2.70b1: replace with proper code
-			trimeshShape.refitTree(null, null);
+        float dt = getDeltaTimeMicroseconds() * 0.000001f;
 
-			// clear all contact points involving mesh proxy. Note: this is a slow/unoptimized operation.
-			dynamicsWorld.getBroadphase().getOverlappingPairCache().cleanProxyFromPairs(staticBody.getBroadphaseHandle(), getDynamicsWorld().getDispatcher());
-			
-			BulletStats.updateTime = (System.nanoTime() - t0) / 1000000;
-		}
+        if (animatedMesh) {
+            long t0 = System.nanoTime();
 
-		dynamicsWorld.stepSimulation(dt);
+            offset += 0.01f;
 
-		// optional but useful: debug drawing
-		dynamicsWorld.debugDrawWorld();
+            setVertexPositions(waveheight, offset);
 
-		convexcastBatch.move(dt);
-		convexcastBatch.cast(dynamicsWorld);
+            // JAVA NOTE: 2.70b1: replace with proper code
+            trimeshShape.refitTree(null, null);
 
-		renderme();
-		convexcastBatch.draw(gl);
+            // clear all contact points involving mesh proxy. Note: this is a slow/unoptimized operation.
+            dynamicsWorld.getBroadphase().getOverlappingPairCache().cleanProxyFromPairs(staticBody.getBroadphaseHandle(), getDynamicsWorld().getDispatcher());
 
-		//glFlush();
-		//glutSwapBuffers();
-	}
+            BulletStats.updateTime = (System.nanoTime() - t0) / 1000000;
+        }
 
-	@Override
-	public void displayCallback() {
-		gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        dynamicsWorld.stepSimulation(dt);
 
-		renderme();
-		convexcastBatch.draw(gl);
+        // optional but useful: debug drawing
+        dynamicsWorld.debugDrawWorld();
 
-		// optional but useful: debug drawing
-		if (dynamicsWorld != null) {
-			dynamicsWorld.debugDrawWorld();
-		}
-		
-		//glFlush();
-		//glutSwapBuffers();
-	}
-	
-	public static void main(String[] args) throws LWJGLException {
-		ConcaveConvexcastDemo concaveConvexcastDemo = new ConcaveConvexcastDemo(LWJGL.getGL());
-		concaveConvexcastDemo.initPhysics();
-		concaveConvexcastDemo.setCameraDistance(30f);
+        convexcastBatch.move(dt);
+        convexcastBatch.cast(dynamicsWorld);
 
-		LWJGL.main(args, 800, 600, "Concave Convexcast Demo", concaveConvexcastDemo);
-	}
-	
+        renderme();
+        convexcastBatch.draw(gl);
+
+        //glFlush();
+        //glutSwapBuffers();
+    }
+
+    @Override
+    public void displayCallback() {
+        gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        renderme();
+        convexcastBatch.draw(gl);
+
+        // optional but useful: debug drawing
+        if (dynamicsWorld != null) {
+            dynamicsWorld.debugDrawWorld();
+        }
+
+        //glFlush();
+        //glutSwapBuffers();
+    }
+
+    public static void main(String[] args) throws LWJGLException {
+        ConcaveConvexcastDemo concaveConvexcastDemo = new ConcaveConvexcastDemo(LWJGL.getGL());
+        concaveConvexcastDemo.initPhysics();
+        concaveConvexcastDemo.setCameraDistance(30f);
+
+        LWJGL.main(args, 800, 600, "Concave Convexcast Demo", concaveConvexcastDemo);
+    }
+
 }

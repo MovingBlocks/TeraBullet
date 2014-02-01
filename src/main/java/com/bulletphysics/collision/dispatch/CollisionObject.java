@@ -33,287 +33,287 @@ import javax.vecmath.Vector3f;
  * CollisionObject can be used to manage collision detection objects.
  * It maintains all information that is needed for a collision detection: {@link CollisionShape},
  * {@link Transform} and {@link BroadphaseProxy AABB proxy}. It can be added to {@link CollisionWorld}.
- * 
+ *
  * @author jezek2
  */
 public class CollisionObject {
-	
-	//protected final BulletStack stack = BulletStack.get();
 
-	// island management, m_activationState1
-	public static final int ACTIVE_TAG = 1;
-	public static final int ISLAND_SLEEPING = 2;
-	public static final int WANTS_DEACTIVATION = 3;
-	public static final int DISABLE_DEACTIVATION = 4;
-	public static final int DISABLE_SIMULATION = 5;
-	protected Transform worldTransform = new Transform();
+    //protected final BulletStack stack = BulletStack.get();
 
-	///m_interpolationWorldTransform is used for CCD and interpolation
-	///it can be either previous or future (predicted) transform
-	protected final Transform interpolationWorldTransform = new Transform();
-	//those two are experimental: just added for bullet time effect, so you can still apply impulses (directly modifying velocities) 
-	//without destroying the continuous interpolated motion (which uses this interpolation velocities)
-	protected final Vector3f interpolationLinearVelocity = new Vector3f();
-	protected final Vector3f interpolationAngularVelocity = new Vector3f();
-	protected BroadphaseProxy broadphaseHandle;
-	protected CollisionShape collisionShape;
-	
-	// rootCollisionShape is temporarily used to store the original collision shape
-	// The collisionShape might be temporarily replaced by a child collision shape during collision detection purposes
-	// If it is null, the collisionShape is not temporarily replaced.
-	protected CollisionShape rootCollisionShape;
-	
-	protected int collisionFlags;
-	protected int islandTag1;
-	protected int companionId;
-	protected int activationState1;
-	protected float deactivationTime;
-	protected float friction;
-	protected float restitution;
+    // island management, m_activationState1
+    public static final int ACTIVE_TAG = 1;
+    public static final int ISLAND_SLEEPING = 2;
+    public static final int WANTS_DEACTIVATION = 3;
+    public static final int DISABLE_DEACTIVATION = 4;
+    public static final int DISABLE_SIMULATION = 5;
+    protected Transform worldTransform = new Transform();
 
-	///users can point to their objects, m_userPointer is not used by Bullet, see setUserPointer/getUserPointer
-	protected Object userObjectPointer;
+    ///m_interpolationWorldTransform is used for CCD and interpolation
+    ///it can be either previous or future (predicted) transform
+    protected final Transform interpolationWorldTransform = new Transform();
+    //those two are experimental: just added for bullet time effect, so you can still apply impulses (directly modifying velocities)
+    //without destroying the continuous interpolated motion (which uses this interpolation velocities)
+    protected final Vector3f interpolationLinearVelocity = new Vector3f();
+    protected final Vector3f interpolationAngularVelocity = new Vector3f();
+    protected BroadphaseProxy broadphaseHandle;
+    protected CollisionShape collisionShape;
 
-	// internalType is reserved to distinguish Bullet's CollisionObject, RigidBody, SoftBody etc.
-	// do not assign your own internalType unless you write a new dynamics object class.
-	protected CollisionObjectType internalType = CollisionObjectType.COLLISION_OBJECT;
+    // rootCollisionShape is temporarily used to store the original collision shape
+    // The collisionShape might be temporarily replaced by a child collision shape during collision detection purposes
+    // If it is null, the collisionShape is not temporarily replaced.
+    protected CollisionShape rootCollisionShape;
 
-	///time of impact calculation
-	protected float hitFraction;
-	///Swept sphere radius (0.0 by default), see btConvexConvexAlgorithm::
-	protected float ccdSweptSphereRadius;
+    protected int collisionFlags;
+    protected int islandTag1;
+    protected int companionId;
+    protected int activationState1;
+    protected float deactivationTime;
+    protected float friction;
+    protected float restitution;
 
-	/// Don't do continuous collision detection if the motion (in one step) is less then ccdMotionThreshold
-	protected float ccdMotionThreshold = 0f;
-	/// If some object should have elaborate collision filtering by sub-classes
-	protected boolean checkCollideWith;
+    ///users can point to their objects, m_userPointer is not used by Bullet, see setUserPointer/getUserPointer
+    protected Object userObjectPointer;
 
-	public CollisionObject() {
-		this.collisionFlags = CollisionFlags.STATIC_OBJECT;
-		this.islandTag1 = -1;
-		this.companionId = -1;
-		this.activationState1 = 1;
-		this.friction = 0.5f;
-		this.hitFraction = 1f;
-	}
+    // internalType is reserved to distinguish Bullet's CollisionObject, RigidBody, SoftBody etc.
+    // do not assign your own internalType unless you write a new dynamics object class.
+    protected CollisionObjectType internalType = CollisionObjectType.COLLISION_OBJECT;
 
-	public boolean checkCollideWithOverride(CollisionObject co) {
-		return true;
-	}
+    ///time of impact calculation
+    protected float hitFraction;
+    ///Swept sphere radius (0.0 by default), see btConvexConvexAlgorithm::
+    protected float ccdSweptSphereRadius;
 
-	public boolean mergesSimulationIslands() {
-		///static objects, kinematic and object without contact response don't merge islands
-		return ((collisionFlags & (CollisionFlags.STATIC_OBJECT | CollisionFlags.KINEMATIC_OBJECT | CollisionFlags.NO_CONTACT_RESPONSE)) == 0);
-	}
+    /// Don't do continuous collision detection if the motion (in one step) is less then ccdMotionThreshold
+    protected float ccdMotionThreshold = 0f;
+    /// If some object should have elaborate collision filtering by sub-classes
+    protected boolean checkCollideWith;
 
-	public boolean isStaticObject() {
-		return (collisionFlags & CollisionFlags.STATIC_OBJECT) != 0;
-	}
+    public CollisionObject() {
+        this.collisionFlags = CollisionFlags.STATIC_OBJECT;
+        this.islandTag1 = -1;
+        this.companionId = -1;
+        this.activationState1 = 1;
+        this.friction = 0.5f;
+        this.hitFraction = 1f;
+    }
 
-	public boolean isKinematicObject() {
-		return (collisionFlags & CollisionFlags.KINEMATIC_OBJECT) != 0;
-	}
+    public boolean checkCollideWithOverride(CollisionObject co) {
+        return true;
+    }
 
-	public boolean isStaticOrKinematicObject() {
-		return (collisionFlags & (CollisionFlags.KINEMATIC_OBJECT | CollisionFlags.STATIC_OBJECT)) != 0;
-	}
+    public boolean mergesSimulationIslands() {
+        ///static objects, kinematic and object without contact response don't merge islands
+        return ((collisionFlags & (CollisionFlags.STATIC_OBJECT | CollisionFlags.KINEMATIC_OBJECT | CollisionFlags.NO_CONTACT_RESPONSE)) == 0);
+    }
 
-	public boolean hasContactResponse() {
-		return (collisionFlags & CollisionFlags.NO_CONTACT_RESPONSE) == 0;
-	}
+    public boolean isStaticObject() {
+        return (collisionFlags & CollisionFlags.STATIC_OBJECT) != 0;
+    }
 
-	public CollisionShape getCollisionShape() {
-		return collisionShape;
-	}
+    public boolean isKinematicObject() {
+        return (collisionFlags & CollisionFlags.KINEMATIC_OBJECT) != 0;
+    }
 
-	public void setCollisionShape(CollisionShape collisionShape) {
-		this.collisionShape = collisionShape;
-		this.rootCollisionShape = collisionShape;
-	}
+    public boolean isStaticOrKinematicObject() {
+        return (collisionFlags & (CollisionFlags.KINEMATIC_OBJECT | CollisionFlags.STATIC_OBJECT)) != 0;
+    }
 
-	public CollisionShape getRootCollisionShape() {
-		return rootCollisionShape;
-	}
+    public boolean hasContactResponse() {
+        return (collisionFlags & CollisionFlags.NO_CONTACT_RESPONSE) == 0;
+    }
 
-	/**
-	 * Avoid using this internal API call.
-	 * internalSetTemporaryCollisionShape is used to temporary replace the actual collision shape by a child collision shape.
-	 */
-	public void internalSetTemporaryCollisionShape(CollisionShape collisionShape) {
-		this.collisionShape = collisionShape;
-	}
+    public CollisionShape getCollisionShape() {
+        return collisionShape;
+    }
 
-	public int getActivationState() {
-		return activationState1;
-	}
+    public void setCollisionShape(CollisionShape collisionShape) {
+        this.collisionShape = collisionShape;
+        this.rootCollisionShape = collisionShape;
+    }
 
-	public void setActivationState(int newState) {
-		if ((activationState1 != DISABLE_DEACTIVATION) && (activationState1 != DISABLE_SIMULATION)) {
-			this.activationState1 = newState;
-		}
-	}
+    public CollisionShape getRootCollisionShape() {
+        return rootCollisionShape;
+    }
 
-	public float getDeactivationTime() {
-		return deactivationTime;
-	}
+    /**
+     * Avoid using this internal API call.
+     * internalSetTemporaryCollisionShape is used to temporary replace the actual collision shape by a child collision shape.
+     */
+    public void internalSetTemporaryCollisionShape(CollisionShape collisionShape) {
+        this.collisionShape = collisionShape;
+    }
 
-	public void setDeactivationTime(float deactivationTime) {
-		this.deactivationTime = deactivationTime;
-	}
+    public int getActivationState() {
+        return activationState1;
+    }
 
-	public void forceActivationState(int newState) {
-		this.activationState1 = newState;
-	}
+    public void setActivationState(int newState) {
+        if ((activationState1 != DISABLE_DEACTIVATION) && (activationState1 != DISABLE_SIMULATION)) {
+            this.activationState1 = newState;
+        }
+    }
 
-	public void activate() {
-		activate(false);
-	}
+    public float getDeactivationTime() {
+        return deactivationTime;
+    }
 
-	public void activate(boolean forceActivation) {
-		if (forceActivation || (collisionFlags & (CollisionFlags.STATIC_OBJECT | CollisionFlags.KINEMATIC_OBJECT)) == 0) {
-			setActivationState(ACTIVE_TAG);
-			deactivationTime = 0f;
-		}
-	}
+    public void setDeactivationTime(float deactivationTime) {
+        this.deactivationTime = deactivationTime;
+    }
 
-	public boolean isActive() {
-		return ((getActivationState() != ISLAND_SLEEPING) && (getActivationState() != DISABLE_SIMULATION));
-	}
+    public void forceActivationState(int newState) {
+        this.activationState1 = newState;
+    }
 
-	public float getRestitution() {
-		return restitution;
-	}
+    public void activate() {
+        activate(false);
+    }
 
-	public void setRestitution(float restitution) {
-		this.restitution = restitution;
-	}
+    public void activate(boolean forceActivation) {
+        if (forceActivation || (collisionFlags & (CollisionFlags.STATIC_OBJECT | CollisionFlags.KINEMATIC_OBJECT)) == 0) {
+            setActivationState(ACTIVE_TAG);
+            deactivationTime = 0f;
+        }
+    }
 
-	public float getFriction() {
-		return friction;
-	}
+    public boolean isActive() {
+        return ((getActivationState() != ISLAND_SLEEPING) && (getActivationState() != DISABLE_SIMULATION));
+    }
 
-	public void setFriction(float friction) {
-		this.friction = friction;
-	}
+    public float getRestitution() {
+        return restitution;
+    }
 
-	// reserved for Bullet internal usage
-	public CollisionObjectType getInternalType() {
-		return internalType;
-	}
+    public void setRestitution(float restitution) {
+        this.restitution = restitution;
+    }
 
-	public Transform getWorldTransform(Transform out) {
-		out.set(worldTransform);
-		return out;
-	}
+    public float getFriction() {
+        return friction;
+    }
 
-	public void setWorldTransform(Transform worldTransform) {
-		this.worldTransform.set(worldTransform);
-	}
+    public void setFriction(float friction) {
+        this.friction = friction;
+    }
 
-	public BroadphaseProxy getBroadphaseHandle() {
-		return broadphaseHandle;
-	}
+    // reserved for Bullet internal usage
+    public CollisionObjectType getInternalType() {
+        return internalType;
+    }
 
-	public void setBroadphaseHandle(BroadphaseProxy broadphaseHandle) {
-		this.broadphaseHandle = broadphaseHandle;
-	}
+    public Transform getWorldTransform(Transform out) {
+        out.set(worldTransform);
+        return out;
+    }
 
-	public Transform getInterpolationWorldTransform(Transform out) {
-		out.set(interpolationWorldTransform);
-		return out;
-	}
+    public void setWorldTransform(Transform worldTransform) {
+        this.worldTransform.set(worldTransform);
+    }
 
-	public void setInterpolationWorldTransform(Transform interpolationWorldTransform) {
-		this.interpolationWorldTransform.set(interpolationWorldTransform);
-	}
+    public BroadphaseProxy getBroadphaseHandle() {
+        return broadphaseHandle;
+    }
 
-	public void setInterpolationLinearVelocity(Vector3f linvel) {
-		interpolationLinearVelocity.set(linvel);
-	}
+    public void setBroadphaseHandle(BroadphaseProxy broadphaseHandle) {
+        this.broadphaseHandle = broadphaseHandle;
+    }
 
-	public void setInterpolationAngularVelocity(Vector3f angvel) {
-		interpolationAngularVelocity.set(angvel);
-	}
+    public Transform getInterpolationWorldTransform(Transform out) {
+        out.set(interpolationWorldTransform);
+        return out;
+    }
 
-	public Vector3f getInterpolationLinearVelocity(Vector3f out) {
-		out.set(interpolationLinearVelocity);
-		return out;
-	}
+    public void setInterpolationWorldTransform(Transform interpolationWorldTransform) {
+        this.interpolationWorldTransform.set(interpolationWorldTransform);
+    }
 
-	public Vector3f getInterpolationAngularVelocity(Vector3f out) {
-		out.set(interpolationAngularVelocity);
-		return out;
-	}
+    public void setInterpolationLinearVelocity(Vector3f linvel) {
+        interpolationLinearVelocity.set(linvel);
+    }
 
-	public int getIslandTag() {
-		return islandTag1;
-	}
+    public void setInterpolationAngularVelocity(Vector3f angvel) {
+        interpolationAngularVelocity.set(angvel);
+    }
 
-	public void setIslandTag(int islandTag) {
-		this.islandTag1 = islandTag;
-	}
+    public Vector3f getInterpolationLinearVelocity(Vector3f out) {
+        out.set(interpolationLinearVelocity);
+        return out;
+    }
 
-	public int getCompanionId() {
-		return companionId;
-	}
+    public Vector3f getInterpolationAngularVelocity(Vector3f out) {
+        out.set(interpolationAngularVelocity);
+        return out;
+    }
 
-	public void setCompanionId(int companionId) {
-		this.companionId = companionId;
-	}
+    public int getIslandTag() {
+        return islandTag1;
+    }
 
-	public float getHitFraction() {
-		return hitFraction;
-	}
+    public void setIslandTag(int islandTag) {
+        this.islandTag1 = islandTag;
+    }
 
-	public void setHitFraction(float hitFraction) {
-		this.hitFraction = hitFraction;
-	}
+    public int getCompanionId() {
+        return companionId;
+    }
 
-	public int getCollisionFlags() {
-		return collisionFlags;
-	}
+    public void setCompanionId(int companionId) {
+        this.companionId = companionId;
+    }
 
-	public void setCollisionFlags(int collisionFlags) {
-		this.collisionFlags = collisionFlags;
-	}
+    public float getHitFraction() {
+        return hitFraction;
+    }
 
-	// Swept sphere radius (0.0 by default), see btConvexConvexAlgorithm::
-	public float getCcdSweptSphereRadius() {
-		return ccdSweptSphereRadius;
-	}
+    public void setHitFraction(float hitFraction) {
+        this.hitFraction = hitFraction;
+    }
 
-	// Swept sphere radius (0.0 by default), see btConvexConvexAlgorithm::
-	public void setCcdSweptSphereRadius(float ccdSweptSphereRadius) {
-		this.ccdSweptSphereRadius = ccdSweptSphereRadius;
-	}
+    public int getCollisionFlags() {
+        return collisionFlags;
+    }
 
-	public float getCcdMotionThreshold() {
-		return ccdMotionThreshold;
-	}
+    public void setCollisionFlags(int collisionFlags) {
+        this.collisionFlags = collisionFlags;
+    }
 
-	public float getCcdSquareMotionThreshold() {
-		return ccdMotionThreshold * ccdMotionThreshold;
-	}
+    // Swept sphere radius (0.0 by default), see btConvexConvexAlgorithm::
+    public float getCcdSweptSphereRadius() {
+        return ccdSweptSphereRadius;
+    }
 
-	// Don't do continuous collision detection if the motion (in one step) is less then ccdMotionThreshold
-	public void setCcdMotionThreshold(float ccdMotionThreshold) {
-		// JAVA NOTE: fixed bug with usage of ccdMotionThreshold*ccdMotionThreshold
-		this.ccdMotionThreshold = ccdMotionThreshold;
-	}
+    // Swept sphere radius (0.0 by default), see btConvexConvexAlgorithm::
+    public void setCcdSweptSphereRadius(float ccdSweptSphereRadius) {
+        this.ccdSweptSphereRadius = ccdSweptSphereRadius;
+    }
 
-	public Object getUserPointer() {
-		return userObjectPointer;
-	}
+    public float getCcdMotionThreshold() {
+        return ccdMotionThreshold;
+    }
 
-	public void setUserPointer(Object userObjectPointer) {
-		this.userObjectPointer = userObjectPointer;
-	}
+    public float getCcdSquareMotionThreshold() {
+        return ccdMotionThreshold * ccdMotionThreshold;
+    }
 
-	public boolean checkCollideWith(CollisionObject co) {
-		if (checkCollideWith) {
-			return checkCollideWithOverride(co);
-		}
+    // Don't do continuous collision detection if the motion (in one step) is less then ccdMotionThreshold
+    public void setCcdMotionThreshold(float ccdMotionThreshold) {
+        // JAVA NOTE: fixed bug with usage of ccdMotionThreshold*ccdMotionThreshold
+        this.ccdMotionThreshold = ccdMotionThreshold;
+    }
 
-		return true;
-	}
+    public Object getUserPointer() {
+        return userObjectPointer;
+    }
+
+    public void setUserPointer(Object userObjectPointer) {
+        this.userObjectPointer = userObjectPointer;
+    }
+
+    public boolean checkCollideWith(CollisionObject co) {
+        if (checkCollideWith) {
+            return checkCollideWithOverride(co);
+        }
+
+        return true;
+    }
 }

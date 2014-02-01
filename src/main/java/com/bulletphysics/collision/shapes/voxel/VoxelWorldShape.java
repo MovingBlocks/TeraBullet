@@ -65,7 +65,7 @@ public class VoxelWorldShape extends CollisionShape {
 
     @Override
     public void calculateLocalInertia(float mass, Vector3f inertia) {
-        inertia.set(0,0,0);
+        inertia.set(0, 0, 0);
     }
 
     @Override

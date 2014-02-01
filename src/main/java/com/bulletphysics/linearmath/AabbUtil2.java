@@ -23,178 +23,175 @@
 
 package com.bulletphysics.linearmath;
 
-import cz.advel.stack.Stack;
-
 import javax.vecmath.Matrix3f;
 import javax.vecmath.Vector3f;
 
 /**
  * Utility functions for axis aligned bounding boxes (AABB).
- * 
+ *
  * @author jezek2
  */
 public class AabbUtil2 {
 
-	public static void aabbExpand(Vector3f aabbMin, Vector3f aabbMax, Vector3f expansionMin, Vector3f expansionMax) {
-		aabbMin.add(expansionMin);
-		aabbMax.add(expansionMax);
-	}
+    public static void aabbExpand(Vector3f aabbMin, Vector3f aabbMax, Vector3f expansionMin, Vector3f expansionMax) {
+        aabbMin.add(expansionMin);
+        aabbMax.add(expansionMax);
+    }
 
-	public static int outcode(Vector3f p, Vector3f halfExtent) {
-		return (p.x < -halfExtent.x ? 0x01 : 0x0) |
-				(p.x > halfExtent.x ? 0x08 : 0x0) |
-				(p.y < -halfExtent.y ? 0x02 : 0x0) |
-				(p.y > halfExtent.y ? 0x10 : 0x0) |
-				(p.z < -halfExtent.z ? 0x4 : 0x0) |
-				(p.z > halfExtent.z ? 0x20 : 0x0);
-	}
-	
-	public static boolean rayAabb(Vector3f rayFrom, Vector3f rayTo, Vector3f aabbMin, Vector3f aabbMax, float[] param, Vector3f normal) {
-		Vector3f aabbHalfExtent = Stack.alloc(Vector3f.class);
-		Vector3f aabbCenter = Stack.alloc(Vector3f.class);
-		Vector3f source = Stack.alloc(Vector3f.class);
-		Vector3f target = Stack.alloc(Vector3f.class);
-		Vector3f r = Stack.alloc(Vector3f.class);
-		Vector3f hitNormal = Stack.alloc(Vector3f.class);
+    public static int outcode(Vector3f p, Vector3f halfExtent) {
+        return (p.x < -halfExtent.x ? 0x01 : 0x0) |
+                (p.x > halfExtent.x ? 0x08 : 0x0) |
+                (p.y < -halfExtent.y ? 0x02 : 0x0) |
+                (p.y > halfExtent.y ? 0x10 : 0x0) |
+                (p.z < -halfExtent.z ? 0x4 : 0x0) |
+                (p.z > halfExtent.z ? 0x20 : 0x0);
+    }
 
-		aabbHalfExtent.sub(aabbMax, aabbMin);
-		aabbHalfExtent.scale(0.5f);
+    public static boolean rayAabb(Vector3f rayFrom, Vector3f rayTo, Vector3f aabbMin, Vector3f aabbMax, float[] param, Vector3f normal) {
+        Vector3f aabbHalfExtent = new Vector3f();
+        Vector3f aabbCenter = new Vector3f();
+        Vector3f source = new Vector3f();
+        Vector3f target = new Vector3f();
+        Vector3f r = new Vector3f();
+        Vector3f hitNormal = new Vector3f();
 
-		aabbCenter.add(aabbMax, aabbMin);
-		aabbCenter.scale(0.5f);
+        aabbHalfExtent.sub(aabbMax, aabbMin);
+        aabbHalfExtent.scale(0.5f);
 
-		source.sub(rayFrom, aabbCenter);
-		target.sub(rayTo, aabbCenter);
+        aabbCenter.add(aabbMax, aabbMin);
+        aabbCenter.scale(0.5f);
 
-		int sourceOutcode = outcode(source, aabbHalfExtent);
-		int targetOutcode = outcode(target, aabbHalfExtent);
-		if ((sourceOutcode & targetOutcode) == 0x0) {
-			float lambda_enter = 0f;
-			float lambda_exit = param[0];
-			r.sub(target, source);
+        source.sub(rayFrom, aabbCenter);
+        target.sub(rayTo, aabbCenter);
 
-			float normSign = 1f;
-			hitNormal.set(0f, 0f, 0f);
-			int bit = 1;
+        int sourceOutcode = outcode(source, aabbHalfExtent);
+        int targetOutcode = outcode(target, aabbHalfExtent);
+        if ((sourceOutcode & targetOutcode) == 0x0) {
+            float lambda_enter = 0f;
+            float lambda_exit = param[0];
+            r.sub(target, source);
 
-			for (int j = 0; j < 2; j++) {
-				for (int i = 0; i != 3; ++i) {
-					if ((sourceOutcode & bit) != 0) {
-						float lambda = (-VectorUtil.getCoord(source, i) - VectorUtil.getCoord(aabbHalfExtent, i) * normSign) / VectorUtil.getCoord(r, i);
-						if (lambda_enter <= lambda) {
-							lambda_enter = lambda;
-							hitNormal.set(0f, 0f, 0f);
-							VectorUtil.setCoord(hitNormal, i, normSign);
-						}
-					}
-					else if ((targetOutcode & bit) != 0) {
-						float lambda = (-VectorUtil.getCoord(source, i) - VectorUtil.getCoord(aabbHalfExtent, i) * normSign) / VectorUtil.getCoord(r, i);
-						//btSetMin(lambda_exit, lambda);
-						lambda_exit = Math.min(lambda_exit, lambda);
-					}
-					bit <<= 1;
-				}
-				normSign = -1f;
-			}
-			if (lambda_enter <= lambda_exit) {
-				param[0] = lambda_enter;
-				normal.set(hitNormal);
-				return true;
-			}
-		}
-		return false;
-	}
-	
-	/**
-	 * Conservative test for overlap between two AABBs.
-	 */
-	public static boolean testAabbAgainstAabb2(Vector3f aabbMin1, Vector3f aabbMax1, Vector3f aabbMin2, Vector3f aabbMax2) {
-		boolean overlap = true;
-		overlap = (aabbMin1.x > aabbMax2.x || aabbMax1.x < aabbMin2.x) ? false : overlap;
-		overlap = (aabbMin1.z > aabbMax2.z || aabbMax1.z < aabbMin2.z) ? false : overlap;
-		overlap = (aabbMin1.y > aabbMax2.y || aabbMax1.y < aabbMin2.y) ? false : overlap;
-		return overlap;
-	}
-	
-	/**
-	 * Conservative test for overlap between triangle and AABB.
-	 */
-	public static boolean testTriangleAgainstAabb2(Vector3f[] vertices, Vector3f aabbMin, Vector3f aabbMax) {
-		Vector3f p1 = vertices[0];
-		Vector3f p2 = vertices[1];
-		Vector3f p3 = vertices[2];
+            float normSign = 1f;
+            hitNormal.set(0f, 0f, 0f);
+            int bit = 1;
 
-		if (Math.min(Math.min(p1.x, p2.x), p3.x) > aabbMax.x) return false;
-		if (Math.max(Math.max(p1.x, p2.x), p3.x) < aabbMin.x) return false;
+            for (int j = 0; j < 2; j++) {
+                for (int i = 0; i != 3; ++i) {
+                    if ((sourceOutcode & bit) != 0) {
+                        float lambda = (-VectorUtil.getCoord(source, i) - VectorUtil.getCoord(aabbHalfExtent, i) * normSign) / VectorUtil.getCoord(r, i);
+                        if (lambda_enter <= lambda) {
+                            lambda_enter = lambda;
+                            hitNormal.set(0f, 0f, 0f);
+                            VectorUtil.setCoord(hitNormal, i, normSign);
+                        }
+                    } else if ((targetOutcode & bit) != 0) {
+                        float lambda = (-VectorUtil.getCoord(source, i) - VectorUtil.getCoord(aabbHalfExtent, i) * normSign) / VectorUtil.getCoord(r, i);
+                        //btSetMin(lambda_exit, lambda);
+                        lambda_exit = Math.min(lambda_exit, lambda);
+                    }
+                    bit <<= 1;
+                }
+                normSign = -1f;
+            }
+            if (lambda_enter <= lambda_exit) {
+                param[0] = lambda_enter;
+                normal.set(hitNormal);
+                return true;
+            }
+        }
+        return false;
+    }
 
-		if (Math.min(Math.min(p1.z, p2.z), p3.z) > aabbMax.z) return false;
-		if (Math.max(Math.max(p1.z, p2.z), p3.z) < aabbMin.z) return false;
+    /**
+     * Conservative test for overlap between two AABBs.
+     */
+    public static boolean testAabbAgainstAabb2(Vector3f aabbMin1, Vector3f aabbMax1, Vector3f aabbMin2, Vector3f aabbMax2) {
+        boolean overlap = true;
+        overlap = (aabbMin1.x > aabbMax2.x || aabbMax1.x < aabbMin2.x) ? false : overlap;
+        overlap = (aabbMin1.z > aabbMax2.z || aabbMax1.z < aabbMin2.z) ? false : overlap;
+        overlap = (aabbMin1.y > aabbMax2.y || aabbMax1.y < aabbMin2.y) ? false : overlap;
+        return overlap;
+    }
 
-		if (Math.min(Math.min(p1.y, p2.y), p3.y) > aabbMax.y) return false;
-		if (Math.max(Math.max(p1.y, p2.y), p3.y) < aabbMin.y) return false;
-		
-		return true;
-	}
+    /**
+     * Conservative test for overlap between triangle and AABB.
+     */
+    public static boolean testTriangleAgainstAabb2(Vector3f[] vertices, Vector3f aabbMin, Vector3f aabbMax) {
+        Vector3f p1 = vertices[0];
+        Vector3f p2 = vertices[1];
+        Vector3f p3 = vertices[2];
 
-	public static void transformAabb(Vector3f halfExtents, float margin, Transform t, Vector3f aabbMinOut, Vector3f aabbMaxOut) {
-		Vector3f halfExtentsWithMargin = Stack.alloc(Vector3f.class);
-		halfExtentsWithMargin.x = halfExtents.x + margin;
-		halfExtentsWithMargin.y = halfExtents.y + margin;
-		halfExtentsWithMargin.z = halfExtents.z + margin;
+        if (Math.min(Math.min(p1.x, p2.x), p3.x) > aabbMax.x) return false;
+        if (Math.max(Math.max(p1.x, p2.x), p3.x) < aabbMin.x) return false;
 
-		Matrix3f abs_b = Stack.alloc(t.basis);
-		MatrixUtil.absolute(abs_b);
+        if (Math.min(Math.min(p1.z, p2.z), p3.z) > aabbMax.z) return false;
+        if (Math.max(Math.max(p1.z, p2.z), p3.z) < aabbMin.z) return false;
 
-		Vector3f tmp = Stack.alloc(Vector3f.class);
+        if (Math.min(Math.min(p1.y, p2.y), p3.y) > aabbMax.y) return false;
+        if (Math.max(Math.max(p1.y, p2.y), p3.y) < aabbMin.y) return false;
 
-		Vector3f center = Stack.alloc(t.origin);
-		Vector3f extent = Stack.alloc(Vector3f.class);
-		abs_b.getRow(0, tmp);
-		extent.x = tmp.dot(halfExtentsWithMargin);
-		abs_b.getRow(1, tmp);
-		extent.y = tmp.dot(halfExtentsWithMargin);
-		abs_b.getRow(2, tmp);
-		extent.z = tmp.dot(halfExtentsWithMargin);
+        return true;
+    }
 
-		aabbMinOut.sub(center, extent);
-		aabbMaxOut.add(center, extent);
-	}
+    public static void transformAabb(Vector3f halfExtents, float margin, Transform t, Vector3f aabbMinOut, Vector3f aabbMaxOut) {
+        Vector3f halfExtentsWithMargin = new Vector3f();
+        halfExtentsWithMargin.x = halfExtents.x + margin;
+        halfExtentsWithMargin.y = halfExtents.y + margin;
+        halfExtentsWithMargin.z = halfExtents.z + margin;
 
-	public static void transformAabb(Vector3f localAabbMin, Vector3f localAabbMax, float margin, Transform trans, Vector3f aabbMinOut, Vector3f aabbMaxOut) {
-		assert (localAabbMin.x <= localAabbMax.x);
-		assert (localAabbMin.y <= localAabbMax.y);
-		assert (localAabbMin.z <= localAabbMax.z);
+        Matrix3f abs_b = new Matrix3f(t.basis);
+        MatrixUtil.absolute(abs_b);
 
-		Vector3f localHalfExtents = Stack.alloc(Vector3f.class);
-		localHalfExtents.sub(localAabbMax, localAabbMin);
-		localHalfExtents.scale(0.5f);
+        Vector3f tmp = new Vector3f();
 
-		localHalfExtents.x += margin;
-		localHalfExtents.y += margin;
-		localHalfExtents.z += margin;
+        Vector3f center = new Vector3f(t.origin);
+        Vector3f extent = new Vector3f();
+        abs_b.getRow(0, tmp);
+        extent.x = tmp.dot(halfExtentsWithMargin);
+        abs_b.getRow(1, tmp);
+        extent.y = tmp.dot(halfExtentsWithMargin);
+        abs_b.getRow(2, tmp);
+        extent.z = tmp.dot(halfExtentsWithMargin);
 
-		Vector3f localCenter = Stack.alloc(Vector3f.class);
-		localCenter.add(localAabbMax, localAabbMin);
-		localCenter.scale(0.5f);
+        aabbMinOut.sub(center, extent);
+        aabbMaxOut.add(center, extent);
+    }
 
-		Matrix3f abs_b = Stack.alloc(trans.basis);
-		MatrixUtil.absolute(abs_b);
+    public static void transformAabb(Vector3f localAabbMin, Vector3f localAabbMax, float margin, Transform trans, Vector3f aabbMinOut, Vector3f aabbMaxOut) {
+        assert (localAabbMin.x <= localAabbMax.x);
+        assert (localAabbMin.y <= localAabbMax.y);
+        assert (localAabbMin.z <= localAabbMax.z);
 
-		Vector3f center = Stack.alloc(localCenter);
-		trans.transform(center);
+        Vector3f localHalfExtents = new Vector3f();
+        localHalfExtents.sub(localAabbMax, localAabbMin);
+        localHalfExtents.scale(0.5f);
 
-		Vector3f extent = Stack.alloc(Vector3f.class);
-		Vector3f tmp = Stack.alloc(Vector3f.class);
+        localHalfExtents.x += margin;
+        localHalfExtents.y += margin;
+        localHalfExtents.z += margin;
 
-		abs_b.getRow(0, tmp);
-		extent.x = tmp.dot(localHalfExtents);
-		abs_b.getRow(1, tmp);
-		extent.y = tmp.dot(localHalfExtents);
-		abs_b.getRow(2, tmp);
-		extent.z = tmp.dot(localHalfExtents);
+        Vector3f localCenter = new Vector3f();
+        localCenter.add(localAabbMax, localAabbMin);
+        localCenter.scale(0.5f);
 
-		aabbMinOut.sub(center, extent);
-		aabbMaxOut.add(center, extent);
-	}
+        Matrix3f abs_b = new Matrix3f(trans.basis);
+        MatrixUtil.absolute(abs_b);
+
+        Vector3f center = new Vector3f(localCenter);
+        trans.transform(center);
+
+        Vector3f extent = new Vector3f();
+        Vector3f tmp = new Vector3f();
+
+        abs_b.getRow(0, tmp);
+        extent.x = tmp.dot(localHalfExtents);
+        abs_b.getRow(1, tmp);
+        extent.y = tmp.dot(localHalfExtents);
+        abs_b.getRow(2, tmp);
+        extent.z = tmp.dot(localHalfExtents);
+
+        aabbMinOut.sub(center, extent);
+        aabbMaxOut.add(center, extent);
+    }
 
 }

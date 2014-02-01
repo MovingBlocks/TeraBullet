@@ -33,24 +33,24 @@ import javax.vecmath.Vector3f;
 
 /**
  * Helper class for tetrahedrons.
- * 
+ *
  * @author jezek2
  */
 class TetrahedronShapeEx extends BU_Simplex1to4 {
 
-	public TetrahedronShapeEx() {
-		numVertices = 4;
-		for (int i = 0; i < numVertices; i++) {
-			vertices[i] = new Vector3f();
-		}
-	}
+    public TetrahedronShapeEx() {
+        numVertices = 4;
+        for (int i = 0; i < numVertices; i++) {
+            vertices[i] = new Vector3f();
+        }
+    }
 
-	public void setVertices(Vector3f v0, Vector3f v1, Vector3f v2, Vector3f v3) {
-		vertices[0].set(v0);
-		vertices[1].set(v1);
-		vertices[2].set(v2);
-		vertices[3].set(v3);
-		recalcLocalAabb();
-	}
-	
+    public void setVertices(Vector3f v0, Vector3f v1, Vector3f v2, Vector3f v3) {
+        vertices[0].set(v0);
+        vertices[1].set(v1);
+        vertices[2].set(v2);
+        vertices[3].set(v3);
+        recalcLocalAabb();
+    }
+
 }
