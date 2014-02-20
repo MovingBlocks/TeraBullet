@@ -211,7 +211,7 @@ public class DefaultCollisionConfiguration extends CollisionConfiguration {
 
         if (proxyType0.isVoxelWorld()) {
             return voxelCF;
-        } else if (proxyType1.isCompound()) {
+        } else if (proxyType1.isVoxelWorld()) {
             return swappedVoxelCF;
         }
 
