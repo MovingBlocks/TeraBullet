@@ -73,8 +73,9 @@ public class RigidBody extends CollisionObject {
     private final Matrix3f invInertiaTensorWorld = new Matrix3f();
     private final Vector3f linearVelocity = new Vector3f();
     private final Vector3f angularVelocity = new Vector3f();
+    private final Vector3f linearFactor = new Vector3f();
+    private final Vector3f angularFactor = new Vector3f();
     private float inverseMass;
-    private float angularFactor;
 
     private final Vector3f gravity = new Vector3f();
     private final Vector3f invInertiaLocal = new Vector3f();
@@ -124,7 +125,8 @@ public class RigidBody extends CollisionObject {
 
         linearVelocity.set(0f, 0f, 0f);
         angularVelocity.set(0f, 0f, 0f);
-        angularFactor = 1f;
+        angularFactor.set(1f,1f,1f);
+        linearFactor.set(1f, 1f, 1f);
         gravity.set(0f, 0f, 0f);
         totalForce.set(0f, 0f, 0f);
         totalTorque.set(0f, 0f, 0f);
@@ -161,6 +163,14 @@ public class RigidBody extends CollisionObject {
         setMassProps(constructionInfo.mass, constructionInfo.localInertia);
         setDamping(constructionInfo.linearDamping, constructionInfo.angularDamping);
         updateInertiaTensor();
+    }
+
+    private Vector3f applyVelocityFactor(Vector3f value, Vector3f velocityFactor) {
+        Vector3f valueWithLinearFactor = new Vector3f(value);
+        valueWithLinearFactor.x *= velocityFactor.x;
+        valueWithLinearFactor.y *= velocityFactor.y;
+        valueWithLinearFactor.z *= velocityFactor.z;
+        return valueWithLinearFactor;
     }
 
     public void destroy() {
@@ -245,6 +255,14 @@ public class RigidBody extends CollisionObject {
 
     public float getAngularSleepingThreshold() {
         return angularSleepingThreshold;
+    }
+
+    public Vector3f getLinearFactor() {
+        return linearFactor;
+    }
+
+    public Vector3f getAngularFactor() {
+        return angularFactor;
     }
 
     /**
@@ -353,7 +371,7 @@ public class RigidBody extends CollisionObject {
     }
 
     public void applyCentralForce(Vector3f force) {
-        totalForce.add(force);
+        totalForce.add(applyVelocityFactor(force, linearFactor));
     }
 
     public Vector3f getInvInertiaDiagLocal(Vector3f out) {
@@ -371,37 +389,33 @@ public class RigidBody extends CollisionObject {
     }
 
     public void applyTorque(Vector3f torque) {
-        totalTorque.add(torque);
+        totalTorque.add(applyVelocityFactor(torque, angularFactor));
     }
 
     public void applyForce(Vector3f force, Vector3f rel_pos) {
         applyCentralForce(force);
 
         Vector3f tmp = new Vector3f();
-        tmp.cross(rel_pos, force);
-        tmp.scale(angularFactor);
+        tmp.cross(rel_pos, applyVelocityFactor(force, linearFactor));
         applyTorque(tmp);
     }
 
     public void applyCentralImpulse(Vector3f impulse) {
-        linearVelocity.scaleAdd(inverseMass, impulse, linearVelocity);
+        linearVelocity.scaleAdd(inverseMass, applyVelocityFactor(impulse, linearFactor), linearVelocity);
     }
 
     public void applyTorqueImpulse(Vector3f torque) {
         Vector3f tmp = new Vector3f(torque);
         invInertiaTensorWorld.transform(tmp);
-        angularVelocity.add(tmp);
+        angularVelocity.add(applyVelocityFactor(tmp,angularFactor));
     }
 
     public void applyImpulse(Vector3f impulse, Vector3f rel_pos) {
         if (inverseMass != 0f) {
             applyCentralImpulse(impulse);
-            if (angularFactor != 0f) {
-                Vector3f tmp = new Vector3f();
-                tmp.cross(rel_pos, impulse);
-                tmp.scale(angularFactor);
-                applyTorqueImpulse(tmp);
-            }
+            Vector3f tmp = new Vector3f();
+            tmp.cross(rel_pos, applyVelocityFactor(impulse, linearFactor));
+            applyTorqueImpulse(tmp);
         }
     }
 
@@ -410,10 +424,8 @@ public class RigidBody extends CollisionObject {
      */
     public void internalApplyImpulse(Vector3f linearComponent, Vector3f angularComponent, float impulseMagnitude) {
         if (inverseMass != 0f) {
-            linearVelocity.scaleAdd(impulseMagnitude, linearComponent, linearVelocity);
-            if (angularFactor != 0f) {
-                angularVelocity.scaleAdd(impulseMagnitude * angularFactor, angularComponent, angularVelocity);
-            }
+            linearVelocity.scaleAdd(impulseMagnitude,  applyVelocityFactor(linearComponent, linearFactor), applyVelocityFactor(linearVelocity, linearFactor));
+            angularVelocity.scaleAdd(impulseMagnitude, applyVelocityFactor(angularComponent, angularFactor), applyVelocityFactor(angularVelocity, angularFactor));
         }
     }
 
@@ -561,12 +573,16 @@ public class RigidBody extends CollisionObject {
         }
     }
 
-    public void setAngularFactor(float angFac) {
-        angularFactor = angFac;
+    public void setAngularFactor(Vector3f angFac) {
+        angularFactor.set(angFac);
     }
 
-    public float getAngularFactor() {
-        return angularFactor;
+    public void setAngularFactor(float angFac) {
+        angularFactor.set(angFac, angFac, angFac);
+    }
+
+    public void setLinearFactor(Vector3f linFac) {
+        linearFactor.set(linFac);
     }
 
     /**

@@ -40,7 +40,8 @@ public class SolverBody {
     //protected final BulletStack stack = BulletStack.get();
 
     public final Vector3f angularVelocity = new Vector3f();
-    public float angularFactor;
+    public Vector3f angularFactor = new Vector3f();
+    public Vector3f linearFactor = new Vector3f();
     public float invMass;
     public float friction;
     public RigidBody originalBody;
@@ -61,15 +62,15 @@ public class SolverBody {
      */
     public void internalApplyImpulse(Vector3f linearComponent, Vector3f angularComponent, float impulseMagnitude) {
         if (invMass != 0f) {
-            linearVelocity.scaleAdd(impulseMagnitude, linearComponent, linearVelocity);
-            angularVelocity.scaleAdd(impulseMagnitude * angularFactor, angularComponent, angularVelocity);
+            linearVelocity.scaleAdd(impulseMagnitude,  applyVelocityFactor(linearComponent, linearFactor), applyVelocityFactor(linearVelocity, linearFactor));
+            angularVelocity.scaleAdd(impulseMagnitude, applyVelocityFactor(angularComponent, angularFactor), applyVelocityFactor(angularVelocity, angularFactor));
         }
     }
 
     public void internalApplyPushImpulse(Vector3f linearComponent, Vector3f angularComponent, float impulseMagnitude) {
         if (invMass != 0f) {
-            pushVelocity.scaleAdd(impulseMagnitude, linearComponent, pushVelocity);
-            turnVelocity.scaleAdd(impulseMagnitude * angularFactor, angularComponent, turnVelocity);
+            pushVelocity.scaleAdd(impulseMagnitude,  applyVelocityFactor(linearComponent, linearFactor), applyVelocityFactor(linearVelocity, pushVelocity));
+            turnVelocity.scaleAdd(impulseMagnitude, applyVelocityFactor(angularComponent, angularFactor), applyVelocityFactor(angularVelocity, turnVelocity));
         }
     }
 
@@ -102,5 +103,14 @@ public class SolverBody {
             originalBody.getAngularVelocity(angularVelocity);
         }
     }
+
+    private Vector3f applyVelocityFactor(Vector3f value, Vector3f velocity) {
+        Vector3f valueWithLinearFactor = new Vector3f(value);
+        valueWithLinearFactor.x *= velocity.x;
+        valueWithLinearFactor.y *= velocity.y;
+        valueWithLinearFactor.z *= velocity.z;
+        return valueWithLinearFactor;
+    }
+
 
 }
