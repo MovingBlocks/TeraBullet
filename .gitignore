@@ -13,3 +13,4 @@ JStackAlloc/target
 *.iml
 *.ipr
 *.iws
+.idea/

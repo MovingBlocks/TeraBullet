@@ -150,6 +150,7 @@ public class SequentialImpulseConstraintSolver extends ConstraintSolver {
             solverBody.invMass = rb.getInvMass();
             rb.getLinearVelocity(solverBody.linearVelocity);
             solverBody.originalBody = rb;
+            solverBody.linearFactor = rb.getLinearFactor();
             solverBody.angularFactor = rb.getAngularFactor();
         } else {
             solverBody.angularVelocity.set(0f, 0f, 0f);
@@ -158,7 +159,8 @@ public class SequentialImpulseConstraintSolver extends ConstraintSolver {
             solverBody.invMass = 0f;
             solverBody.linearVelocity.set(0f, 0f, 0f);
             solverBody.originalBody = null;
-            solverBody.angularFactor = 1f;
+            solverBody.linearFactor = new Vector3f(1f, 1f, 1f);
+            solverBody.angularFactor = new Vector3f(1f, 1f, 1f);
         }
 
         solverBody.pushVelocity.set(0f, 0f, 0f);
