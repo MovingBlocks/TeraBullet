@@ -52,4 +52,9 @@ public interface VoxelInfo {
      */
     boolean isBlocking();
 
+    /**
+     * @return The friction of this voxel
+     */
+    float getFriction();
+
 }
