@@ -153,6 +153,7 @@ public class VoxelWorldCollisionAlgorithm extends CollisionAlgorithm {
                     colObj.setInterpolationWorldTransform(newChildWorldTrans);
                     colObj.setUserPointer(childInfo.getUserData());
                     colObj.setFriction(childInfo.getFriction());
+                    colObj.setRestitution(childInfo.getRestitution());
 
                     info.algorithm.processCollision(colObj, otherObj, dispatchInfo, resultOut);
 

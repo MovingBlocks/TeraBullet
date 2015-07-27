@@ -57,4 +57,9 @@ public interface VoxelInfo {
      */
     float getFriction();
 
+    /**
+     * @return The restitution of this voxel
+     */
+    float getRestitution();
+
 }
