@@ -174,7 +174,7 @@ public class HashedOverlappingPairCache extends OverlappingPairCache {
         }
 
         boolean collides = (proxy0.collisionFilterGroup & proxy1.collisionFilterMask) != 0;
-        collides = collides && (proxy1.collisionFilterGroup & proxy0.collisionFilterMask) != 0;
+        collides = collides || (proxy1.collisionFilterGroup & proxy0.collisionFilterMask) != 0;
 
         return collides;
     }
