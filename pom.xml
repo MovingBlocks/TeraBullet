@@ -4,7 +4,7 @@
     <groupId>org.terasology.bullet</groupId>
     <artifactId>tera-bullet</artifactId>
     <packaging>jar</packaging>
-    <version>1.0.4-SNAPSHOT</version>
+    <version>1.3.0</version>
     <name>TeraBullet</name>
     <url>https://github.com/MovingBlocks/TeraBullet</url>
     <distributionManagement>
