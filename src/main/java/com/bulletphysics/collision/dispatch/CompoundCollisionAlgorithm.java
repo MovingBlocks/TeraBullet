@@ -53,6 +53,14 @@ public class CompoundCollisionAlgorithm extends CollisionAlgorithm {
         CollisionObject otherObj = isSwapped ? body0 : body1;
         assert (colObj.getCollisionShape().isCompound());
 
+        matchChildren(colObj, otherObj);
+    }
+
+    public void matchChildren(CollisionObject colObj, CollisionObject otherObj) {
+        if (!childCollisionAlgorithms.isEmpty()) {
+            destroy();
+        }
+
         CompoundShape compoundShape = (CompoundShape) colObj.getCollisionShape();
         int numChildren = compoundShape.getNumChildShapes();
         int i;
@@ -62,7 +70,7 @@ public class CompoundCollisionAlgorithm extends CollisionAlgorithm {
             CollisionShape tmpShape = colObj.getCollisionShape();
             CollisionShape childShape = compoundShape.getChildShape(i);
             colObj.internalSetTemporaryCollisionShape(childShape);
-            childCollisionAlgorithms.add(ci.dispatcher1.findAlgorithm(colObj, otherObj));
+            childCollisionAlgorithms.add(dispatcher.findAlgorithm(colObj, otherObj));
             colObj.internalSetTemporaryCollisionShape(tmpShape);
         }
     }
@@ -84,6 +92,11 @@ public class CompoundCollisionAlgorithm extends CollisionAlgorithm {
 
         assert (colObj.getCollisionShape().isCompound());
         CompoundShape compoundShape = (CompoundShape) colObj.getCollisionShape();
+
+        if (compoundShape.getNumChildShapes() != childCollisionAlgorithms.size())
+        {
+            matchChildren(colObj, otherObj);
+        }
 
         // We will use the OptimizedBVH, AABB tree to cull potential child-overlaps
         // If both proxies are Compound, we will deal with that directly, by performing sequential/parallel tree traversals
@@ -132,6 +145,11 @@ public class CompoundCollisionAlgorithm extends CollisionAlgorithm {
         assert (colObj.getCollisionShape().isCompound());
 
         CompoundShape compoundShape = (CompoundShape) colObj.getCollisionShape();
+
+        if (compoundShape.getNumChildShapes() != childCollisionAlgorithms.size())
+        {
+            matchChildren(colObj, otherObj);
+        }
 
         // We will use the OptimizedBVH, AABB tree to cull potential child-overlaps
         // If both proxies are Compound, we will deal with that directly, by performing sequential/parallel tree traversals
