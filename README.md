@@ -1,3 +1,5 @@
+## NOTE: depreciated in favor of: https://github.com/MovingBlocks/JNBullet
+
 TeraBullet
 ==========
 
